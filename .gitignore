@@ -17,7 +17,7 @@ nlog.txt
 
 # Environment & secrets
 appsettings.Development.json
-config/appsettings.json
+**/config/appsettings.json
 
 # Storage uploads
 storage/

@@ -1,8 +1,0 @@
-{
-  "TapHoa.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\code\\dotnet\\TapHoa2\\src\\Presentation\\TapHoa.Api",
-  "TapHoa.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\code\\dotnet\\TapHoa2\\src\\Core\\TapHoa.Application",
-  "TapHoa.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\code\\dotnet\\TapHoa2\\src\\Core\\TapHoa.Domain",
-  "TapHoa.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\code\\dotnet\\TapHoa2\\src\\Infrastructure\\TapHoa.Infrastructure",
-  "TapHoa.Persistence, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\code\\dotnet\\TapHoa2\\src\\Infrastructure\\TapHoa.Persistence",
-  "TapHoa.Utilities, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\code\\dotnet\\TapHoa2\\src\\SharedKernel\\TapHoa.Utilities"
-}
