@@ -1,0 +1,36 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# .NET
+*.user
+*.suo
+*.userprefs
+.vs/
+*.ncrunchsolution
+
+# Logs
+logs/
+*.log
+nlog.txt
+
+# Environment & secrets
+appsettings.Development.json
+config/appsettings.json
+
+# Storage uploads
+storage/
+
+# IDE / AI tools
+.claude/
+.cursor/
+.vscode/
+.idea/
+
+# Seed / debug SQL (chỉ dùng local)
+*.sql
+
+# Test results
+TestResults/
+coverage/
