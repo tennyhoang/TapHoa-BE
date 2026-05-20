@@ -8,5 +8,8 @@ public record GetMyOrdersQuery(
     Guid UserId,
     int Page = 1,
     int PageSize = 10,
-    OrderStatus? Status = null)
+    OrderStatus? Status = null,
+    DateTimeOffset? DateFrom = null,
+    DateTimeOffset? DateTo = null,
+    string? SortByAmount = null)
     : IRequest<Result<PagedResult<OrderResponse>>>;

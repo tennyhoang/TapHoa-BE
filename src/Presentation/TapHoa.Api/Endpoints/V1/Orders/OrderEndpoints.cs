@@ -23,9 +23,12 @@ public static class OrderEndpoints
 
         group.MapGet("/my", async (
             ClaimsPrincipal user, IMediator mediator,
-            int page = 1, int pageSize = 10, OrderStatus? status = null) =>
+            int page = 1, int pageSize = 10, OrderStatus? status = null,
+            DateTimeOffset? dateFrom = null, DateTimeOffset? dateTo = null,
+            string? sortByAmount = null) =>
         {
-            var result = await mediator.Send(new GetMyOrdersQuery(GetUserId(user), page, pageSize, status));
+            var result = await mediator.Send(
+                new GetMyOrdersQuery(GetUserId(user), page, pageSize, status, dateFrom, dateTo, sortByAmount));
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : Results.BadRequest(new { result.Error, result.ErrorCode });

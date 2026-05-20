@@ -19,7 +19,18 @@ public class GetMyOrdersQueryHandler(IRepository<Order> orderRepo)
         if (request.Status.HasValue)
             query = query.Where(o => o.Status == request.Status.Value);
 
-        query = query.OrderByDescending(o => o.CreatedAt);
+        if (request.DateFrom.HasValue)
+            query = query.Where(o => o.CreatedAt >= request.DateFrom.Value.UtcDateTime);
+
+        if (request.DateTo.HasValue)
+            query = query.Where(o => o.CreatedAt <= request.DateTo.Value.UtcDateTime);
+
+        query = request.SortByAmount switch
+        {
+            "asc"  => query.OrderBy(o => o.TotalAmount),
+            "desc" => query.OrderByDescending(o => o.TotalAmount),
+            _      => query.OrderByDescending(o => o.CreatedAt),
+        };
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query

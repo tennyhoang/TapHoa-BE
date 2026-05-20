@@ -11,6 +11,15 @@ public static class DriverEndpoints
         var group = app.MapGroup("/api/v1/driver").WithTags("Driver")
             .RequireAuthorization("Driver");
 
+        // Lấy danh sách đơn Confirmed cần lấy từ kho
+        group.MapGet("/orders", async (IMediator mediator, int page = 1, int pageSize = 20) =>
+        {
+            var result = await mediator.Send(new GetDriverOrdersQuery(page, pageSize));
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { result.Error, result.ErrorCode });
+        });
+
         // Nhận hàng từ kho, chuyển trạng thái Confirmed → Shipping (batch)
         group.MapPatch("/orders/pickup-from-warehouse", async (
             PickupRequest body, ClaimsPrincipal user, IMediator mediator) =>

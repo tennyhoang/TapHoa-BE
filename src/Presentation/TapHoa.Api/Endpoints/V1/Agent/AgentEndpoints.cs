@@ -1,6 +1,7 @@
 using MediatR;
 using System.Security.Claims;
 using TapHoa.Application.Agent.V1;
+using TapHoa.Domain.Enums;
 
 namespace TapHoa.Api.Endpoints.V1.Agent;
 
@@ -10,6 +11,20 @@ public static class AgentEndpoints
     {
         var group = app.MapGroup("/api/v1/agent").WithTags("Agent")
             .RequireAuthorization("Agent");
+
+        // Lấy danh sách đơn hàng tại Hub của Agent
+        group.MapGet("/orders", async (
+            ClaimsPrincipal user, IMediator mediator,
+            OrderStatus? status = null, int page = 1, int pageSize = 20) =>
+        {
+            if (!TryGetAgentHubId(user, out var hubId))
+                return Results.Forbid();
+
+            var result = await mediator.Send(new GetAgentOrdersQuery(hubId, status, page, pageSize));
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { result.Error, result.ErrorCode });
+        });
 
         // Xác nhận xe tải đã giao hàng đến trạm (Shipping → ArrivedAtHub)
         group.MapPatch("/orders/{id:guid}/arrive", async (
