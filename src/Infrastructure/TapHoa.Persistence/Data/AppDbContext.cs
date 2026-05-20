@@ -1,0 +1,145 @@
+using Microsoft.EntityFrameworkCore;
+using TapHoa.Domain.Entities;
+
+namespace TapHoa.Persistence.Data;
+
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+{
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<Address> Addresses => Set<Address>();
+    public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<Hub> Hubs => Set<Hub>();
+    public DbSet<UserHub> UserHubs => Set<UserHub>();
+    public DbSet<HubInventory> HubInventories => Set<HubInventory>();
+    public DbSet<OrderClaim> OrderClaims => Set<OrderClaim>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<User>(e =>
+        {
+            e.HasIndex(u => u.Email).IsUnique();
+            e.Property(u => u.FullName).HasMaxLength(200);
+            e.Property(u => u.Email).HasMaxLength(256);
+
+            // Agent FK — null для Customer/Admin
+            e.HasOne<Hub>()
+             .WithMany()
+             .HasForeignKey(u => u.AgentHubId)
+             .OnDelete(DeleteBehavior.SetNull)
+             .IsRequired(false);
+        });
+
+        modelBuilder.Entity<Product>(e =>
+        {
+            e.Property(p => p.Price).HasColumnType("decimal(18,2)");
+            e.Property(p => p.DiscountPrice).HasColumnType("decimal(18,2)");
+        });
+
+        modelBuilder.Entity<Order>(e =>
+        {
+            e.Property(o => o.TotalAmount).HasColumnType("decimal(18,2)");
+            e.Property(o => o.Status).HasConversion<string>();
+            e.Property(o => o.CancelReason).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<OrderItem>(e =>
+            e.Property(oi => oi.UnitPrice).HasColumnType("decimal(18,2)"));
+
+        modelBuilder.Entity<Category>(e =>
+            e.HasOne(c => c.Parent)
+             .WithMany(c => c.Children)
+             .HasForeignKey(c => c.ParentId)
+             .OnDelete(DeleteBehavior.Restrict));
+
+        modelBuilder.Entity<Review>(e =>
+            e.HasIndex(r => new { r.UserId, r.ProductId }).IsUnique());
+
+        modelBuilder.Entity<Hub>(e =>
+        {
+            e.Property(h => h.Name).HasMaxLength(200).IsRequired();
+            e.Property(h => h.Address).HasMaxLength(500).IsRequired();
+            e.Property(h => h.Ward).HasMaxLength(100).IsRequired();
+            e.Property(h => h.District).HasMaxLength(100).IsRequired();
+            e.Property(h => h.City).HasMaxLength(100).IsRequired();
+            e.Property(h => h.Status).HasConversion<string>();
+
+            // Một Hub có nhiều Order; xóa Hub không được khi vẫn còn Order
+            e.HasMany(h => h.Orders)
+             .WithOne(o => o.Hub)
+             .HasForeignKey(o => o.HubId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            // Một Hub có nhiều UserHub (favorites); xóa Hub thì xóa luôn favorites
+            e.HasMany(h => h.UserHubs)
+             .WithOne(uh => uh.Hub)
+             .HasForeignKey(uh => uh.HubId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserHub>(e =>
+        {
+            // Mỗi cặp (UserId, HubId) là duy nhất — một Customer chỉ lưu một Hub một lần
+            e.HasIndex(uh => new { uh.UserId, uh.HubId }).IsUnique();
+
+            e.HasOne(uh => uh.User)
+             .WithMany(u => u.UserHubs)
+             .HasForeignKey(uh => uh.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            // Hub side đã khai báo ở trên; EF Core không cần khai báo lại
+        });
+
+        modelBuilder.Entity<OrderClaim>(e =>
+        {
+            e.Property(c => c.Status).HasConversion<string>();
+            e.Property(c => c.Reason).HasMaxLength(1000).IsRequired();
+            e.Property(c => c.ImageUrl).HasMaxLength(2048);
+
+            e.HasOne(c => c.Order)
+             .WithMany(o => o.Claims)
+             .HasForeignKey(c => c.OrderId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(c => c.Customer)
+             .WithMany()
+             .HasForeignKey(c => c.CustomerId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(c => c.OrderId).IsUnique();
+        });
+
+        modelBuilder.Entity<HubInventory>(e =>
+        {
+            e.HasKey(hi => new { hi.ProductId, hi.HubId });
+
+            e.HasOne(hi => hi.Product)
+             .WithMany(p => p.HubInventories)
+             .HasForeignKey(hi => hi.ProductId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(hi => hi.Hub)
+             .WithMany(h => h.HubInventories)
+             .HasForeignKey(hi => hi.HubId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.Property(hi => hi.Stock).HasDefaultValue(0);
+        });
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+            if (entry.State == EntityState.Modified)
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+
+        return base.SaveChangesAsync(cancellationToken);
+    }
+}

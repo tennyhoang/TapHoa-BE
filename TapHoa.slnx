@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Core/">
+    <Project Path="src/Core/TapHoa.Application/TapHoa.Application.csproj" />
+    <Project Path="src/Core/TapHoa.Domain/TapHoa.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/Infrastructure/TapHoa.Infrastructure/TapHoa.Infrastructure.csproj" />
+    <Project Path="src/Infrastructure/TapHoa.Persistence/TapHoa.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/src/Presentation/">
+    <Project Path="src/Presentation/TapHoa.Api/TapHoa.Api.csproj" />
+    <Project Path="src/Presentation/TapHoa.Worker/TapHoa.Worker.csproj" />
+  </Folder>
+  <Folder Name="/src/SharedKernel/">
+    <Project Path="src/SharedKernel/TapHoa.Utilities/TapHoa.Utilities.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TapHoa.Api.Tests/TapHoa.Api.Tests.csproj" />
+    <Project Path="tests/TapHoa.Application.Tests/TapHoa.Application.Tests.csproj" />
+    <Project Path="tests/TapHoa.Domain.Tests/TapHoa.Domain.Tests.csproj" />
+    <Project Path="tests/TapHoa.Infrastructure.Tests/TapHoa.Infrastructure.Tests.csproj" />
+    <Project Path="tests/TapHoa.Persistence.Tests/TapHoa.Persistence.Tests.csproj" />
+    <Project Path="tests/TapHoa.Worker.Tests/TapHoa.Worker.Tests.csproj" />
+  </Folder>
+</Solution>
