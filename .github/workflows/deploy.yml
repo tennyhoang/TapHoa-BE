@@ -1,0 +1,73 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [dev, staging, master]
+  pull_request:
+    branches: [dev, staging, master]
+
+jobs:
+  # ── Build & Test ───────────────────────────────────────────────────────────
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release --verbosity normal
+
+  # ── Deploy: Development (dev branch) ──────────────────────────────────────
+  deploy-dev:
+    name: Deploy to Development
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - name: Trigger Render deploy (Dev)
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_DEV }}" | grep -q "^2" \
+            && echo "Deploy triggered successfully" \
+            || (echo "Deploy hook failed" && exit 1)
+
+  # ── Deploy: Staging (staging branch) ──────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Trigger Render deploy (Staging)
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_STAGING }}" | grep -q "^2" \
+            && echo "Deploy triggered successfully" \
+            || (echo "Deploy hook failed" && exit 1)
+
+  # ── Deploy: Production (master branch) ────────────────────────────────────
+  deploy-production:
+    name: Deploy to Production
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Render deploy (Production)
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_PROD }}" | grep -q "^2" \
+            && echo "Deploy triggered successfully" \
+            || (echo "Deploy hook failed" && exit 1)
