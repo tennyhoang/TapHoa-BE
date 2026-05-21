@@ -13,6 +13,13 @@ public static class InfrastructureExtension
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        var jwtKey = configuration["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+            throw new InvalidOperationException(
+                "Jwt:Key is missing or too short (minimum 32 characters). " +
+                "On Render: set the Jwt__Key environment variable. " +
+                "Locally: add it to appsettings.Development.json under \"Jwt\": { \"Key\": \"...\" }.");
+
         services.AddScoped<IJwtService, JwtService>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -27,7 +34,7 @@ public static class InfrastructureExtension
                     ValidIssuer = configuration["Jwt:Issuer"],
                     ValidAudience = configuration["Jwt:Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!)),
+                        Encoding.UTF8.GetBytes(jwtKey)),
                     RoleClaimType = ClaimTypes.Role,
                     NameClaimType = "unique_name"
                 };

@@ -1,9 +1,18 @@
 using MediatR;
 using System.Security.Claims;
 using TapHoa.Application.Agent.V1;
+using TapHoa.Application.Agent.V1.ReportDamaged;
 using TapHoa.Domain.Enums;
 
 namespace TapHoa.Api.Endpoints.V1.Agent;
+
+// Request body gửi từ frontend khi báo cáo hàng lỗi
+public record ReportDamagedGoodsRequest(
+    Guid OrderId,
+    Guid ProductId,
+    int DamagedQuantity,
+    string Reason
+);
 
 public static class AgentEndpoints
 {
@@ -58,6 +67,31 @@ public static class AgentEndpoints
                     : result.ErrorCode is "HUB_FORBIDDEN"
                         ? Results.Forbid()
                         : Results.Conflict(new { result.Error, result.ErrorCode });
+        });
+
+        // Báo cáo hàng lỗi/thất thoát tại Hub
+        group.MapPost("/report-damaged", async (
+            ReportDamagedGoodsRequest body, ClaimsPrincipal user, IMediator mediator) =>
+        {
+            if (!TryGetAgentHubId(user, out var hubId))
+                return Results.Forbid();
+
+            var command = new ReportDamagedGoodsCommand(
+                AgentId:         GetUserId(user),
+                AgentHubId:      hubId,
+                OrderId:         body.OrderId,
+                ProductId:       body.ProductId,
+                DamagedQuantity: body.DamagedQuantity,
+                Reason:          body.Reason);
+
+            var result = await mediator.Send(command);
+            return result.IsSuccess
+                ? Results.Created($"/api/v1/agent/report-damaged/{result.Value!.Id}", result.Value)
+                : result.ErrorCode is "ORDER_NOT_FOUND" or "PRODUCT_NOT_IN_ORDER"
+                    ? Results.NotFound(new { result.Error, result.ErrorCode })
+                    : result.ErrorCode is "HUB_FORBIDDEN"
+                        ? Results.Forbid()
+                        : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
     }
 

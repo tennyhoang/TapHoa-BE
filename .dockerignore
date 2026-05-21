@@ -1,0 +1,34 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+
+# Secrets & local config (inject qua Render Environment Variables)
+**/config/appsettings.json
+**/appsettings.Development.json
+
+# Logs & uploads (runtime data, không thuộc image)
+**/logs/
+**/storage/
+
+# Test projects (không cần trong production image)
+tests/
+src/Presentation/TapHoa.Worker/
+
+# Frontend reference files
+src/Presentation/TapHoa.Api/__frontend_reference__/
+
+# IDE & tools
+**/.vs/
+**/.vscode/
+**/.idea/
+**/.cursor/
+**/.claude/
+**/.git/
+
+# Test results
+**/TestResults/
+**/coverage/
+
+# SQL debug scripts
+*.sql

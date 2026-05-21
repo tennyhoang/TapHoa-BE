@@ -125,7 +125,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     needs: ci
     runs-on: ubuntu-latest
-    environment: development   # Bốc RENDER_DEPLOY_HOOK từ environment 'development'
+    environment: Development   # Bốc RENDER_DEPLOY_HOOK từ environment 'Development'
 
     steps:
       - name: Trigger Render deploy — Development
@@ -149,7 +149,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
     needs: ci
     runs-on: ubuntu-latest
-    environment: staging       # Bốc RENDER_DEPLOY_HOOK từ environment 'staging'
+    environment: Staging       # Bốc RENDER_DEPLOY_HOOK từ environment 'Staging'
 
     steps:
       - name: Trigger Render deploy — Staging
@@ -179,7 +179,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: ci
     runs-on: ubuntu-latest
-    environment: production    # Bốc RENDER_DEPLOY_HOOK từ environment 'production'
+    environment: Production    # Bốc RENDER_DEPLOY_HOOK từ environment 'Production'
 
     steps:
       - name: Trigger Render deploy — Production
