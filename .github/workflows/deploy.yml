@@ -2,116 +2,75 @@
 # CI/CD Pipeline — TapHoa Backend  (.NET 10 → Render)
 # =============================================================================
 #
-# ┌─────────────────────────────────────────────────────────────────────────┐
-# │  LUỒNG KIỂM DUYỆT (Branch Strategy)                                    │
-# │                                                                         │
-# │   dev ──PR──► staging ──PR──► main                                     │
-# │    │              │             │                                       │
-# │   push           push          push (chỉ xảy ra khi PR được merged)    │
-# │   CI + CD Dev    CI + CD Stg   CI + CD Prod                            │
-# │                                                                         │
-# │  Khi PR đang mở (chưa merge): chỉ chạy CI để Leader review code       │
-# │  Khi PR được merge: chạy CI rồi mới CD                                 │
-# └─────────────────────────────────────────────────────────────────────────┘
+# LUỒNG KIỂM DUYỆT:
 #
-# ──────────────────────────────────────────────────────────────────────────
-# [BẮT BUỘC] CÀI ĐẶT THỦ CÔNG TRÊN GITHUB REPO TRƯỚC KHI DÙNG FILE NÀY
-# ──────────────────────────────────────────────────────────────────────────
+#   [dev]          push → CI + CD Development (tự động)
+#   [staging]      push → CI + CD Staging     (sau khi PR dev→staging merge)
+#   [main] PR mở  →       CI only             (build + test check để review)
+#   [main] PR merge→      CI + CD Production  (sau khi Leader Approve + Merge)
 #
-# 1. BRANCH PROTECTION RULES (Settings → Branches → Add rule):
+# =============================================================================
+# CÀI ĐẶT BẮT BUỘC TRƯỚC KHI SỬ DỤNG
+# =============================================================================
 #
-#    Nhánh `main`:
+# A. ĐỔI DEFAULT BRANCH (GitHub → Settings → Branches):
+#    Đổi default branch từ 'master' sang 'main'
+#
+# B. BRANCH PROTECTION RULES (Settings → Branches → Add rule):
+#
+#    Rule cho nhánh [main]:
 #      ✅ Require a pull request before merging
-#         └ Require approvals: 1  ← Leader phải Approve
-#      ✅ Require status checks to pass before merging
-#         └ Thêm check: "CI — Build · Test"
+#         └ Require approvals: 1
+#      ✅ Require status checks: "CI — Build & Test"
 #      ✅ Do not allow bypassing the above settings
-#      ✅ Restrict who can push: chỉ Leader
 #
-#    Nhánh `staging`:
+#    Rule cho nhánh [staging]:
 #      ✅ Require a pull request before merging
-#      ✅ Require status checks: "CI — Build · Test"
+#      ✅ Require status checks: "CI — Build & Test"
 #
-# 2. GITHUB ENVIRONMENTS (Settings → Environments → New environment):
+# C. GITHUB ENVIRONMENTS (Settings → Environments):
 #
-#    Tạo 3 environments: development  |  staging  |  production
+#    Tạo 3 environments: development | staging | production
 #
-#    Environment `production`:
-#      ✅ Required reviewers: [tên Leader]
-#         → Ngay cả sau khi PR merge vào main, CD vẫn chờ Leader
-#           bấm "Review deployments" trên GitHub UI
-#      ✅ Deployment branches: Selected branches → main
+#    Environment [production]:
+#      ✅ Required reviewers: [GitHub username của Leader]
+#      ✅ Deployment branches: chỉ cho phép nhánh 'main'
 #
-# 3. SECRETS CẦN THÊM VÀO TỪNG ENVIRONMENT:
+# D. SECRETS CẦN THÊM VÀO TỪNG ENVIRONMENT:
 #
-#    ┌──────────────────┬──────────────────────────────────────────────────┐
-#    │ Secret           │ Mô tả                                            │
-#    ├──────────────────┼──────────────────────────────────────────────────┤
-#    │ RENDER_DEPLOY_   │ Webhook URL lấy từ Render dashboard              │
-#    │   HOOK           │ (Service → Settings → Deploy Hook)               │
-#    │                  │ → Dev hook: kết nối DB dev, Cloudinary test      │
-#    │                  │ → Stg hook: kết nối DB staging, email test       │
-#    │                  │ → Prod hook: kết nối DB prod, email thật         │
-#    └──────────────────┴──────────────────────────────────────────────────┘
+#    [development]
+#      RENDER_DEPLOY_HOOK = <Deploy Hook URL của Render Dev service>
 #
-#    Environment `development`:
-#      • RENDER_DEPLOY_HOOK = <Dev service deploy hook URL>
-#        Render Dev service cần có env vars:
-#          - ConnectionStrings__DefaultConnection = <DB dev>
-#          - Jwt__Key                             = <dev key>
-#          - Cloudinary__CloudName/ApiKey/Secret  = <cloudinary test>
-#          - Email__SmtpHost                      = smtp.mailtrap.io (test inbox)
-#          - ASPNETCORE_ENVIRONMENT               = Development
+#    [staging]
+#      RENDER_DEPLOY_HOOK = <Deploy Hook URL của Render Staging service>
 #
-#    Environment `staging`:
-#      • RENDER_DEPLOY_HOOK = <Staging service deploy hook URL>
-#        Render Staging service cần có env vars:
-#          - ConnectionStrings__DefaultConnection = <DB staging>
-#          - Jwt__Key                             = <staging key>
-#          - Cloudinary__*                        = <cloudinary staging bucket>
-#          - Email__SmtpHost                      = smtp.sendgrid.net (test key)
-#          - ASPNETCORE_ENVIRONMENT               = Staging
+#    [production]
+#      RENDER_DEPLOY_HOOK = <Deploy Hook URL của Render Production service>
 #
-#    Environment `production`:
-#      • RENDER_DEPLOY_HOOK = <Production service deploy hook URL>
-#        Render Production service cần có env vars:
-#          - ConnectionStrings__DefaultConnection = <DB production - bảo mật cao>
-#          - Jwt__Key                             = <key dài 256-bit, rotate định kỳ>
-#          - Cloudinary__*                        = <cloudinary production>
-#          - Email__SmtpHost                      = smtp.sendgrid.net (real API key)
-#          - ASPNETCORE_ENVIRONMENT               = Production
+#    Cách lấy Deploy Hook URL:
+#      Render Dashboard → Service → Settings → Deploy Hook → Create Hook
 #
-# NOTE: Các biến môi trường thật (.NET config) được quản lý trong Render
-#       dashboard, không được lưu vào GitHub. GitHub chỉ lưu Deploy Hook URL.
-#       Render sẽ inject các biến đó vào container khi build.
+#    Lưu ý: Các biến cấu hình thật của ứng dụng (.NET appsettings) như
+#    ConnectionStrings, Jwt__Key, Cloudinary, Email... được quản lý
+#    TRỰC TIẾP trong Render Dashboard (Environment → Environment Variables)
+#    cho từng service, KHÔNG lưu vào GitHub Secrets.
 #
 # =============================================================================
 
 name: CI/CD — TapHoa BE
 
 on:
-  # ── Trigger A: Push lên các nhánh chính ─────────────────────────────────
-  # • dev     → CI + CD Development
-  # • staging → CI + CD Staging      (sau khi PR dev→staging được merged)
-  # • main    → CI + CD Production   (sau khi PR staging→main được merged)
+  # Trigger khi push vào 3 nhánh chính
   push:
-    branches:
-      - dev
-      - staging
-      - main
+    branches: [dev, staging, main]
 
-  # ── Trigger B: Mở hoặc cập nhật Pull Request ────────────────────────────
-  # Chỉ chạy job CI, các job CD bị bỏ qua vì điều kiện event_name == 'push'
+  # Trigger khi có Pull Request nhắm vào staging hoặc main
+  # → Chỉ chạy CI (build + test), không deploy
   pull_request:
-    branches:
-      - staging
-      - main
-    types:
-      - opened
-      - synchronize
-      - reopened
+    branches: [staging, main]
+    types: [opened, synchronize, reopened]
 
-# Hủy run cũ trên cùng branch/PR khi có run mới để tránh lãng phí runner
+# Hủy run cũ khi có commit mới trên cùng nhánh/PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -119,17 +78,13 @@ concurrency:
 jobs:
 
   # ===========================================================================
-  # JOB 1: CI — Build & Test
-  # ===========================================================================
-  # Chạy với MỌI trigger. Đây là "gate" bắt buộc trước khi được phép deploy.
-  # Nếu job này fail → tất cả job CD không chạy (needs: ci).
+  # JOB 1 — CI: Build & Test (chạy với MỌI trigger)
   # ===========================================================================
   ci:
-    name: CI — Build · Test
+    name: CI — Build & Test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout source code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup .NET 10 SDK
@@ -137,92 +92,57 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # Cache NuGet packages để tăng tốc lần build tiếp theo
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
 
-      # ── Restore → Build → Test ───────────────────────────────────────────
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build (Release config)
-        # -c Release: build với cấu hình release để phát hiện lỗi production-level
-        # --no-restore: không restore lại vì đã làm bước trên
-        # --warningsAsErrors: không cho phép warning tồn tại (code quality gate)
+      - name: Build (Release)
         run: dotnet build --no-restore -c Release
 
-      - name: Run unit tests
-        # --no-build: tái sử dụng binary từ bước build
-        # --logger "trx;LogFileName=results.trx": xuất kết quả test theo chuẩn TRX
-        # --collect "XPlat Code Coverage": thu thập độ phủ test (code coverage)
-        run: >
-          dotnet test --no-build -c Release
-          --verbosity normal
-          --logger "trx;LogFileName=test-results.trx"
-          --collect "XPlat Code Coverage"
+      - name: Run tests
+        run: dotnet test --no-build -c Release --verbosity normal
 
-      # Upload kết quả test để xem trực tiếp trên GitHub Actions UI
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()   # Upload dù test pass hay fail để debug dễ hơn
+        if: always()
         with:
-          name: test-results
+          name: test-results-${{ github.sha }}
           path: '**/TestResults/*.trx'
           retention-days: 7
 
 
   # ===========================================================================
-  # JOB 2: CD — Deploy to Development
-  # ===========================================================================
-  # Trigger: push vào nhánh 'dev'
-  # Cơ chế: Gọi Render Deploy Hook → Render pull code mới nhất và build lại
-  # Secrets: lấy từ GitHub Environment 'development'
-  #   → Render Dev service dùng DB dev, Cloudinary test, MailTrap (inbox giả)
+  # JOB 2 — CD Development: Deploy ngay khi push vào nhánh 'dev'
   # ===========================================================================
   deploy-dev:
     name: CD — Deploy to Development
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    needs: ci             # CI phải xanh trước khi deploy
+    needs: ci
     runs-on: ubuntu-latest
     environment: Development   # Bốc RENDER_DEPLOY_HOOK từ environment 'Development'
 
     steps:
       - name: Trigger Render deploy — Development
-        # Render Deploy Hook là một POST endpoint đặc biệt, không cần body
-        # Phản hồi HTTP 2xx = trigger thành công; còn lại = lỗi
         run: |
+          echo "Triggering deploy on Render (Development)..."
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}")
-
           echo "Render response: HTTP $HTTP_STATUS"
-
           if [[ "$HTTP_STATUS" =~ ^2 ]]; then
-            echo "✅ Deploy triggered successfully on Development"
+            echo "✅ Deploy triggered — Development"
           else
-            echo "❌ Deploy hook returned HTTP $HTTP_STATUS — kiểm tra lại URL trong Render dashboard"
-            exit 1
+            echo "❌ Deploy hook failed: HTTP $HTTP_STATUS" && exit 1
           fi
 
-      - name: Wait and verify deploy status (tuỳ chọn)
-        # Thêm thông tin để theo dõi — link đến Render dashboard để xem log
-        run: |
-          echo "Deploy đang chạy trên Render. Xem log tại:"
-          echo "https://dashboard.render.com → Services → TapHoa-Dev → Logs"
-
 
   # ===========================================================================
-  # JOB 3: CD — Deploy to Staging
-  # ===========================================================================
-  # Trigger: push vào nhánh 'staging'
-  #   → Xảy ra khi PR dev→staging được Leader merge
-  # Secrets: lấy từ GitHub Environment 'staging'
-  #   → Render Staging service dùng DB staging, email test (SendGrid sandbox)
-  # Mục đích: QA/UAT testing trước khi lên production
+  # JOB 3 — CD Staging: Deploy khi PR dev→staging được merge
   # ===========================================================================
   deploy-staging:
     name: CD — Deploy to Staging
@@ -234,82 +154,44 @@ jobs:
     steps:
       - name: Trigger Render deploy — Staging
         run: |
+          echo "Triggering deploy on Render (Staging)..."
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}")
-
           echo "Render response: HTTP $HTTP_STATUS"
-
           if [[ "$HTTP_STATUS" =~ ^2 ]]; then
-            echo "✅ Deploy triggered successfully on Staging"
+            echo "✅ Deploy triggered — Staging"
           else
-            echo "❌ Deploy hook returned HTTP $HTTP_STATUS"
-            exit 1
+            echo "❌ Deploy hook failed: HTTP $HTTP_STATUS" && exit 1
           fi
 
-      - name: Staging deploy notice
-        run: |
-          echo "Deploy đang chạy trên Render Staging. Xem log tại:"
-          echo "https://dashboard.render.com → Services → TapHoa-Staging → Logs"
-          echo ""
-          echo "Sau khi deploy xong, truy cập staging URL để kiểm tra:"
-          echo "https://staging-api.taphoa.vn/health"
-
 
   # ===========================================================================
-  # JOB 4: CD — Deploy to Production  ⚠ TẦNG KIỂM DUYỆT CAO NHẤT
+  # JOB 4 — CD Production: Deploy CHỈ khi PR được merge vào 'main'
   # ===========================================================================
-  # Trigger: push vào nhánh 'main'
-  #
-  # CƠ CHẾ BẢO VỆ 3 TẦNG:
-  #   Tầng 1 — Branch protection: Không ai được push trực tiếp vào main.
-  #             Phải qua PR và được Leader Approve.
-  #
-  #   Tầng 2 — CI gate: job này chỉ chạy sau khi job 'ci' pass (needs: ci).
-  #             Nếu build hoặc test fail → production deploy bị chặn hoàn toàn.
-  #
-  #   Tầng 3 — Environment protection: GitHub Environment 'production' có
-  #             'Required reviewers' → Leader phải bấm "Review deployments"
-  #             trên GitHub Actions UI ngay cả sau khi PR đã merge.
-  #             (Cấu hình tại: Settings → Environments → production)
-  #
-  # Secrets: lấy từ GitHub Environment 'production'
-  #   → Render Production service dùng DB thật, Cloudinary thật, SendGrid thật
-  #   → Jwt__Key là key dài, rotate định kỳ
-  #   → ASPNETCORE_ENVIRONMENT = Production (tắt Swagger, bật HTTPS Strict)
+  # Cơ chế bảo vệ:
+  #   1. Branch protection: không ai push trực tiếp được vào main
+  #   2. CI gate: needs: ci — build + test phải xanh
+  #   3. Environment protection: Required Reviewers pause job này cho đến
+  #      khi Leader vào GitHub Actions UI và bấm Approve
   # ===========================================================================
   deploy-production:
     name: CD — Deploy to Production
-    # KHÔNG chạy khi PR đang mở (pull_request event)
-    # CHỈ chạy sau khi PR staging→main được merge (push event to main)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: ci
     runs-on: ubuntu-latest
     environment: Production    # Bốc RENDER_DEPLOY_HOOK từ environment 'Production'
-                               # Nếu 'Required reviewers' được bật → CI/CD sẽ pause
-                               # và chờ Leader xác nhận trước khi tiếp tục
 
     steps:
       - name: Trigger Render deploy — Production
         run: |
+          echo "Triggering deploy on Render (Production)..."
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}")
-
           echo "Render response: HTTP $HTTP_STATUS"
-
           if [[ "$HTTP_STATUS" =~ ^2 ]]; then
-            echo "✅ PRODUCTION deploy triggered successfully"
+            echo "✅ Deploy triggered — Production"
+            echo "Commit: ${{ github.sha }}"
+            echo "Deployed by: ${{ github.actor }}"
           else
-            echo "❌ PRODUCTION deploy hook returned HTTP $HTTP_STATUS"
-            echo "⚠ Kiểm tra ngay Render dashboard và rollback nếu cần!"
-            exit 1
+            echo "❌ Deploy hook failed: HTTP $HTTP_STATUS" && exit 1
           fi
-
-      - name: Production deploy notice
-        run: |
-          echo "=========================================="
-          echo "  PRODUCTION DEPLOY ĐÃ ĐƯỢC KÍCH HOẠT"
-          echo "=========================================="
-          echo "Commit: ${{ github.sha }}"
-          echo "Merged by: ${{ github.actor }}"
-          echo "Xem log: https://dashboard.render.com → Services → TapHoa-Prod → Logs"
-          echo "Health check: https://api.taphoa.vn/health"
