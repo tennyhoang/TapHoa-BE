@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<UserHub> UserHubs => Set<UserHub>();
     public DbSet<HubInventory> HubInventories => Set<HubInventory>();
     public DbSet<OrderClaim> OrderClaims => Set<OrderClaim>();
+    public DbSet<OrderDamagedReport> OrderDamagedReports => Set<OrderDamagedReport>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -131,6 +132,28 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .OnDelete(DeleteBehavior.Cascade);
 
             e.Property(hi => hi.Stock).HasDefaultValue(0);
+        });
+
+        modelBuilder.Entity<OrderDamagedReport>(e =>
+        {
+            e.Property(r => r.RefundAmount).HasColumnType("decimal(18,2)");
+            e.Property(r => r.Reason).IsRequired().HasMaxLength(1000);
+            e.Property(r => r.Status).HasConversion<string>();
+
+            e.HasOne(r => r.Order)
+             .WithMany()
+             .HasForeignKey(r => r.OrderId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(r => r.Product)
+             .WithMany()
+             .HasForeignKey(r => r.ProductId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(r => r.ReportedByAgent)
+             .WithMany()
+             .HasForeignKey(r => r.ReportedByAgentId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

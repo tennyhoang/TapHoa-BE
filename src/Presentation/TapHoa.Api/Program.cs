@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using NLog;
 using NLog.Web;
@@ -21,6 +22,7 @@ using TapHoa.Api.Middleware;
 using TapHoa.Application;
 using TapHoa.Infrastructure;
 using TapHoa.Persistence;
+using TapHoa.Persistence.Data;
 
 var logger = LogManager.Setup().LoadConfigurationFromFile("nlog.config").GetCurrentClassLogger();
 
@@ -31,7 +33,12 @@ try
     var builder = WebApplication.CreateBuilder(args);
 
     builder.Configuration
-        .AddJsonFile("config/appsettings.json", optional: false, reloadOnChange: true)
+        // 1. Custom shared config (secrets không commit lên git)
+        .AddJsonFile("config/appsettings.json", optional: true, reloadOnChange: true)
+        // 2. Environment-specific override — đọc SAU custom config nên thắng ở local dev.
+        //    Trên Render (Production) file này không tồn tại nên bỏ qua; env var ở bước 3 thắng.
+        .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+        // 3. Environment variables — ưu tiên cao nhất, inject Jwt__Key / ConnectionStrings__DefaultConnection trên Render
         .AddEnvironmentVariables();
 
     builder.Logging.ClearProviders();
@@ -50,13 +57,29 @@ try
     {
         options.AddDefaultPolicy(policy =>
         {
-            policy.WithOrigins("http://localhost:3000")
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
+            policy
+                .SetIsOriginAllowed(origin =>
+                {
+                    var host = new Uri(origin).Host;
+                    // localhost (mọi port) cho môi trường dev
+                    // *.vercel.app cho frontend production trên Vercel
+                    return host == "localhost"
+                        || host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase);
+                })
+                .AllowAnyHeader()
+                .AllowAnyMethod();
         });
     });
 
     var app = builder.Build();
+
+    // Tự động apply pending migrations và seed dữ liệu mẫu khi DB còn trống.
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.MigrateAsync();
+        await DataSeeder.SeedAsync(db);
+    }
 
     Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "storage", "uploads"));
 
