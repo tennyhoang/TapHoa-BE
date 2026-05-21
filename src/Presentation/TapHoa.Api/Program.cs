@@ -33,7 +33,12 @@ try
     var builder = WebApplication.CreateBuilder(args);
 
     builder.Configuration
-        .AddJsonFile("config/appsettings.json", optional: false, reloadOnChange: true)
+        // 1. Custom shared config (secrets không commit lên git)
+        .AddJsonFile("config/appsettings.json", optional: true, reloadOnChange: true)
+        // 2. Environment-specific override — đọc SAU custom config nên thắng ở local dev.
+        //    Trên Render (Production) file này không tồn tại nên bỏ qua; env var ở bước 3 thắng.
+        .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+        // 3. Environment variables — ưu tiên cao nhất, inject Jwt__Key / ConnectionStrings__DefaultConnection trên Render
         .AddEnvironmentVariables();
 
     builder.Logging.ClearProviders();
