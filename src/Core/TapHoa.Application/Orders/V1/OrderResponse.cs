@@ -31,10 +31,9 @@ public record OrderResponse(
     List<OrderItemResponse> Items,
     DateTime CreatedAt,
     string? CancelReason,
-    DateTime? ConfirmedAt,
-    DateTime? ShippingAt,
-    DateTime? ArrivedAtHubAt,
-    DateTime? DeliveredAt,
+    DateTime? ShippingToHubAt,
+    DateTime? InHubAt,
+    DateTime? CompletedAt,
     DateTime? CancelledAt,
     DateTime? RefundedAt
 );

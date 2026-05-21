@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TapHoa.Application.Common;
 using TapHoa.Application.Orders.V1;
 using TapHoa.Domain.Entities;
+using TapHoa.Domain.Enums;
 using TapHoa.Domain.Repositories;
 
 namespace TapHoa.Application.Agent.V1;
@@ -18,8 +19,9 @@ public class GetAgentOrdersQueryHandler(IRepository<Order> orderRepo)
             .Include(o => o.Items).ThenInclude(i => i.Product)
             .Where(o => o.HubId == request.HubId);
 
-        if (request.Status.HasValue)
-            query = query.Where(o => o.Status == request.Status.Value);
+        // Màn hình chính Agent mặc định chỉ hiển thị đơn sẵn sàng cho khách lấy
+        var statusFilter = request.Status ?? OrderStatus.InHub_ReadyForPickup;
+        query = query.Where(o => o.Status == statusFilter);
 
         query = query.OrderByDescending(o => o.CreatedAt);
 

@@ -36,12 +36,13 @@ public class GetRevenueStatsQueryHandler(
             .GroupBy(_ => 1)
             .Select(g => new
             {
-                ActualRevenue    = g.Sum(o => o.Status == OrderStatus.Delivered    ? (decimal?)o.TotalAmount : null) ?? 0m,
-                ProjectedRevenue = g.Sum(o => o.Status == OrderStatus.Confirmed
-                                           || o.Status == OrderStatus.Shipping     ? (decimal?)o.TotalAmount : null) ?? 0m,
-                CancelledRevenue = g.Sum(o => o.Status == OrderStatus.Cancelled    ? (decimal?)o.TotalAmount : null) ?? 0m,
+                ActualRevenue    = g.Sum(o => o.Status == OrderStatus.Completed              ? (decimal?)o.TotalAmount : null) ?? 0m,
+                ProjectedRevenue = g.Sum(o => o.Status == OrderStatus.Paid_WaitingForBatch
+                                           || o.Status == OrderStatus.ShippingToHub
+                                           || o.Status == OrderStatus.InHub_ReadyForPickup   ? (decimal?)o.TotalAmount : null) ?? 0m,
+                CancelledRevenue = g.Sum(o => o.Status == OrderStatus.Cancelled              ? (decimal?)o.TotalAmount : null) ?? 0m,
                 TotalOrders      = g.Count(),
-                SuccessfulOrders = g.Count(o => o.Status == OrderStatus.Delivered),
+                SuccessfulOrders = g.Count(o => o.Status == OrderStatus.Completed),
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -54,7 +55,7 @@ public class GetRevenueStatsQueryHandler(
         // ── Previous period (same duration) → GrowthRate ──────────────────────
         var prevRevenue = await orderRepo.Query()
             .Where(o => o.CreatedAt >= prevFromUtc && o.CreatedAt < fromUtc
-                     && o.Status == OrderStatus.Delivered)
+                     && o.Status == OrderStatus.Completed)
             .SumAsync(o => (decimal?)o.TotalAmount, cancellationToken) ?? 0m;
 
         decimal? growthRate = prevRevenue == 0
@@ -68,9 +69,10 @@ public class GetRevenueStatsQueryHandler(
             .Select(g => new
             {
                 Date             = g.Key,
-                ActualRevenue    = g.Sum(o => o.Status == OrderStatus.Delivered    ? (decimal?)o.TotalAmount : null) ?? 0m,
-                ProjectedRevenue = g.Sum(o => o.Status == OrderStatus.Confirmed
-                                           || o.Status == OrderStatus.Shipping     ? (decimal?)o.TotalAmount : null) ?? 0m,
+                ActualRevenue    = g.Sum(o => o.Status == OrderStatus.Completed              ? (decimal?)o.TotalAmount : null) ?? 0m,
+                ProjectedRevenue = g.Sum(o => o.Status == OrderStatus.Paid_WaitingForBatch
+                                           || o.Status == OrderStatus.ShippingToHub
+                                           || o.Status == OrderStatus.InHub_ReadyForPickup   ? (decimal?)o.TotalAmount : null) ?? 0m,
             })
             .OrderBy(x => x.Date)
             .ToListAsync(cancellationToken);
@@ -83,7 +85,7 @@ public class GetRevenueStatsQueryHandler(
         // Navigates OrderItem → Order and OrderItem → Product entirely in SQL.
         var topProductsRaw = await orderItemRepo.Query()
             .Where(i => i.Order.CreatedAt >= fromUtc && i.Order.CreatedAt < toUtc
-                     && i.Order.Status == OrderStatus.Delivered)
+                     && i.Order.Status == OrderStatus.Completed)
             .GroupBy(i => new { i.ProductId, ProductName = i.Product.Name })
             .Select(g => new
             {

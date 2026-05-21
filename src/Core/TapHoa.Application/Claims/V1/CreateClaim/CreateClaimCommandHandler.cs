@@ -19,9 +19,9 @@ public class CreateClaimCommandHandler(
         if (order is null)
             return Result<ClaimResponse>.Fail("Không tìm thấy đơn hàng.", "ORDER_NOT_FOUND");
 
-        if (order.Status != OrderStatus.Delivered)
+        if (order.Status != OrderStatus.Completed)
             return Result<ClaimResponse>.Fail(
-                "Chỉ có thể khiếu nại đơn hàng đã giao thành công.", "ORDER_NOT_DELIVERED");
+                "Chỉ có thể khiếu nại đơn hàng đã hoàn thành.", "ORDER_NOT_COMPLETED");
 
         var existingClaim = await claimRepo.FindAsync(c => c.OrderId == request.OrderId);
         if (existingClaim is not null)

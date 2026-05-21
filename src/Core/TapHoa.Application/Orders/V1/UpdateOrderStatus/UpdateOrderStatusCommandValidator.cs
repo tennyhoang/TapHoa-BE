@@ -10,7 +10,7 @@ public class UpdateOrderStatusCommandValidator : AbstractValidator<UpdateOrderSt
         RuleFor(x => x.OrderId).NotEmpty();
         RuleFor(x => x.Status)
             .IsInEnum()
-            .NotEqual(OrderStatus.Pending).WithMessage("Không thể chuyển về trạng thái Pending.");
+            .NotEqual(OrderStatus.Paid_WaitingForBatch).WithMessage("Không thể chuyển về trạng thái Paid_WaitingForBatch.");
         RuleFor(x => x.CancelReason)
             .MaximumLength(500);
     }

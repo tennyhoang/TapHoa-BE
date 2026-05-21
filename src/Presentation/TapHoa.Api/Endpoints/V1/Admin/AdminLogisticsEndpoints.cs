@@ -11,10 +11,10 @@ public static class AdminLogisticsEndpoints
         var group = app.MapGroup("/api/v1/admin/logistics").WithTags("Admin - Logistics")
             .RequireAuthorization("Admin");
 
-        // Danh sách hàng cần gom cho ngày cụ thể (mặc định: hôm nay, trạng thái: Confirmed)
+        // Danh sách hàng cần gom cho ngày cụ thể (mặc định: hôm nay, trạng thái: Paid_WaitingForBatch)
         group.MapGet("/picking-list", async (
             IMediator mediator,
-            OrderStatus status = OrderStatus.Confirmed,
+            OrderStatus status = OrderStatus.Paid_WaitingForBatch,
             DateOnly? date = null) =>
             Results.Ok(await mediator.Send(new GetPickingListQuery(status, date))));
     }

@@ -93,10 +93,9 @@ public class CreateOrderCommandHandler(
         }).ToList(),
         o.CreatedAt,
         o.CancelReason,
-        o.ConfirmedAt,
-        o.ShippingAt,
-        o.ArrivedAtHubAt,
-        o.DeliveredAt,
+        o.ShippingToHubAt,
+        o.InHubAt,
+        o.CompletedAt,
         o.CancelledAt,
         o.RefundedAt
     );

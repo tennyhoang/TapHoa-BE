@@ -31,7 +31,7 @@ public class AgentArriveCommandHandler(
 
         try
         {
-            order.ArriveAtHub();
+            order.MarkInHub();
         }
         catch (OrderDomainException ex)
         {
@@ -48,7 +48,7 @@ public class AgentArriveCommandHandler(
             HubId:            order.HubId,
             HubName:          order.Hub.Name,
             HubAddress:       $"{order.Hub.Address}, {order.Hub.Ward}, {order.Hub.District}, {order.Hub.City}",
-            ArrivedAt:        order.ArrivedAtHubAt!.Value
+            ArrivedAt:        order.InHubAt!.Value
         ), cancellationToken);
 
         return Result<OrderResponse>.Ok(

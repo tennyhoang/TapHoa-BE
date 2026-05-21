@@ -9,13 +9,12 @@ public class Order : BaseEntity
     // Deprecated trong luồng O2O — giữ lại nullable để không mất dữ liệu đơn cũ.
     public Guid? ShippingAddressId { get; set; }
     public decimal TotalAmount { get; set; }
-    public OrderStatus Status { get; private set; } = OrderStatus.Pending;
+    public OrderStatus Status { get; private set; } = OrderStatus.Paid_WaitingForBatch;
     public string? Note { get; set; }
     public string? CancelReason { get; private set; }
-    public DateTime? ConfirmedAt { get; private set; }
-    public DateTime? ShippingAt { get; private set; }
-    public DateTime? ArrivedAtHubAt { get; private set; }
-    public DateTime? DeliveredAt { get; private set; }
+    public DateTime? ShippingToHubAt { get; private set; }
+    public DateTime? InHubAt { get; private set; }
+    public DateTime? CompletedAt { get; private set; }
     public DateTime? CancelledAt { get; private set; }
     public DateTime? RefundedAt { get; private set; }
 
@@ -28,64 +27,58 @@ public class Order : BaseEntity
     public ICollection<OrderItem> Items { get; set; } = [];
     public ICollection<OrderClaim> Claims { get; set; } = [];
 
-    public void Confirm()
+    // Driver nhận lô gom đêm → bắt đầu giao đến Hub
+    public void StartShipping()
     {
         GuardTerminal();
-        if (Status != OrderStatus.Pending)
-            throw new OrderDomainException($"Không thể xác nhận đơn hàng ở trạng thái '{Status}'.");
-        Status = OrderStatus.Confirmed;
-        ConfirmedAt = DateTime.UtcNow;
+        if (Status != OrderStatus.Paid_WaitingForBatch)
+            throw new OrderDomainException($"Không thể bắt đầu giao khi đơn hàng ở trạng thái '{Status}'.");
+        Status = OrderStatus.ShippingToHub;
+        ShippingToHubAt = DateTime.UtcNow;
     }
 
-    public void Ship()
+    // Agent xác nhận đã nhận hàng từ Driver tại Hub
+    public void MarkInHub()
     {
         GuardTerminal();
-        if (Status != OrderStatus.Confirmed)
-            throw new OrderDomainException($"Không thể giao hàng khi đơn hàng ở trạng thái '{Status}'.");
-        Status = OrderStatus.Shipping;
-        ShippingAt = DateTime.UtcNow;
+        if (Status != OrderStatus.ShippingToHub)
+            throw new OrderDomainException($"Chỉ có thể xác nhận đến Hub khi đơn đang vận chuyển (trạng thái hiện tại: '{Status}').");
+        Status = OrderStatus.InHub_ReadyForPickup;
+        InHubAt = DateTime.UtcNow;
     }
 
-    public void ArriveAtHub()
+    // Agent xác nhận khách đã đến lấy hàng
+    public void Complete()
     {
         GuardTerminal();
-        if (Status != OrderStatus.Shipping)
-            throw new OrderDomainException($"Chỉ có thể cập nhật 'Đến Hub' khi đơn đang vận chuyển (trạng thái hiện tại: '{Status}').");
-        Status = OrderStatus.ArrivedAtHub;
-        ArrivedAtHubAt = DateTime.UtcNow;
-    }
-
-    public void Deliver()
-    {
-        GuardTerminal();
-        if (Status != OrderStatus.ArrivedAtHub)
-            throw new OrderDomainException($"Chỉ có thể xác nhận hoàn thành khi hàng đã đến Hub (trạng thái hiện tại: '{Status}').");
-        Status = OrderStatus.Delivered;
-        DeliveredAt = DateTime.UtcNow;
+        if (Status != OrderStatus.InHub_ReadyForPickup)
+            throw new OrderDomainException($"Chỉ có thể hoàn thành khi hàng đã sẵn sàng tại Hub (trạng thái hiện tại: '{Status}').");
+        Status = OrderStatus.Completed;
+        CompletedAt = DateTime.UtcNow;
     }
 
     public void Cancel(string? reason = null)
     {
         GuardTerminal();
-        if (Status != OrderStatus.Pending)
-            throw new OrderDomainException("Chỉ có thể hủy đơn hàng đang chờ xử lý.");
+        if (Status != OrderStatus.Paid_WaitingForBatch)
+            throw new OrderDomainException("Chỉ có thể hủy đơn hàng đang chờ gom hàng.");
         Status = OrderStatus.Cancelled;
         CancelledAt = DateTime.UtcNow;
         CancelReason = reason?.Trim();
     }
 
-    // Không gọi GuardTerminal() vì Delivered là điều kiện đầu vào hợp lệ
+    // Không gọi GuardTerminal() vì Completed là điều kiện đầu vào hợp lệ
     public void Refund()
     {
-        if (Status != OrderStatus.Delivered)
-            throw new OrderDomainException($"Chỉ có thể hoàn tiền đơn hàng đã giao thành công (trạng thái hiện tại: '{Status}').");
+        if (Status != OrderStatus.Completed)
+            throw new OrderDomainException($"Chỉ có thể hoàn tiền đơn hàng đã hoàn thành (trạng thái hiện tại: '{Status}').");
         Status = OrderStatus.Refunded;
         RefundedAt = DateTime.UtcNow;
     }
 
     private void GuardTerminal()
     {
-        if (Status is OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Refunded)
+        if (Status is OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Refunded)
             throw new OrderDomainException($"Đơn hàng đã kết thúc ('{Status}'), không thể cập nhật thêm.");
     }
 }
