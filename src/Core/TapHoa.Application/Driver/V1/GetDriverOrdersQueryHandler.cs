@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TapHoa.Application.Common;
-using TapHoa.Application.Orders.V1;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Enums;
 using TapHoa.Domain.Repositories;
@@ -9,30 +8,31 @@ using TapHoa.Domain.Repositories;
 namespace TapHoa.Application.Driver.V1;
 
 public class GetDriverOrdersQueryHandler(IRepository<Order> orderRepo)
-    : IRequestHandler<GetDriverOrdersQuery, Result<PagedResult<OrderResponse>>>
+    : IRequestHandler<GetDriverOrdersQuery, Result<List<DriverHubBatch>>>
 {
-    public async Task<Result<PagedResult<OrderResponse>>> Handle(
+    public async Task<Result<List<DriverHubBatch>>> Handle(
         GetDriverOrdersQuery request, CancellationToken cancellationToken)
     {
-        var query = orderRepo.Query()
+        var orders = await orderRepo.Query()
             .Include(o => o.Hub)
             .Include(o => o.Items).ThenInclude(i => i.Product)
-            .Where(o => o.Status == OrderStatus.Confirmed)
-            .OrderBy(o => o.ConfirmedAt ?? o.CreatedAt);
-
-        var totalCount = await query.CountAsync(cancellationToken);
-        var items = await query
-            .Skip((request.Page - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .Where(o => o.Status == OrderStatus.Paid_WaitingForBatch)
+            .OrderBy(o => o.Hub.Name).ThenBy(o => o.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        return Result<PagedResult<OrderResponse>>.Ok(new PagedResult<OrderResponse>
-        {
-            Items = items.Select(o =>
-                Orders.V1.CreateOrder.CreateOrderCommandHandler.MapToResponse(o, o.Hub)).ToList(),
-            TotalCount = totalCount,
-            Page = request.Page,
-            PageSize = request.PageSize
-        });
+        var batches = orders
+            .GroupBy(o => o.Hub)
+            .Select(g => new DriverHubBatch(
+                HubId:          g.Key.Id,
+                HubName:        g.Key.Name,
+                HubFullAddress: $"{g.Key.Address}, {g.Key.Ward}, {g.Key.District}, {g.Key.City}",
+                OrderCount:     g.Count(),
+                TotalAmount:    g.Sum(o => o.TotalAmount),
+                Orders:         g.Select(o => Orders.V1.CreateOrder.CreateOrderCommandHandler
+                                    .MapToResponse(o, o.Hub)).ToList()
+            ))
+            .ToList();
+
+        return Result<List<DriverHubBatch>>.Ok(batches);
     }
 }

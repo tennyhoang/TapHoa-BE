@@ -65,16 +65,14 @@ public class GetAllOrdersQueryHandler(IRepository<Order> orderRepo)
         )).ToList(),
         o.CreatedAt,
         o.CancelReason,
-        o.ConfirmedAt,
-        o.ShippingAt,
-        o.ArrivedAtHubAt,
-        o.DeliveredAt,
+        o.ShippingToHubAt,
+        o.InHubAt,
+        o.CompletedAt,
         o.CancelledAt,
         o.RefundedAt,
-        CanConfirm:     o.Status == OrderStatus.Pending,
-        CanShip:        o.Status == OrderStatus.Confirmed,
-        CanArriveAtHub: o.Status == OrderStatus.Shipping,
-        CanDeliver:     o.Status == OrderStatus.ArrivedAtHub,
-        CanCancel:      o.Status == OrderStatus.Pending
+        CanStartShipping: o.Status == OrderStatus.Paid_WaitingForBatch,
+        CanMarkInHub:     o.Status == OrderStatus.ShippingToHub,
+        CanComplete:      o.Status == OrderStatus.InHub_ReadyForPickup,
+        CanCancel:        o.Status == OrderStatus.Paid_WaitingForBatch
     );
 }

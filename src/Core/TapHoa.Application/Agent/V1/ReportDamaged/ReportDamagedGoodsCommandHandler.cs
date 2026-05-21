@@ -27,9 +27,9 @@ public class ReportDamagedGoodsCommandHandler(
             return Result<DamagedReportResponse>.Fail(
                 "Bạn không có quyền thao tác đơn hàng của Hub khác.", "HUB_FORBIDDEN");
 
-        if (order.Status is not (OrderStatus.ArrivedAtHub or OrderStatus.Delivered))
+        if (order.Status is not (OrderStatus.InHub_ReadyForPickup or OrderStatus.Completed))
             return Result<DamagedReportResponse>.Fail(
-                "Chỉ có thể báo cáo hàng lỗi khi đơn hàng đã đến Hub (trạng thái: ArrivedAtHub hoặc Delivered).",
+                "Chỉ có thể báo cáo hàng lỗi khi đơn hàng đã tại Hub (trạng thái: InHub_ReadyForPickup hoặc Completed).",
                 "INVALID_ORDER_STATUS");
 
         var orderItem = order.Items.FirstOrDefault(i => i.ProductId == request.ProductId);
