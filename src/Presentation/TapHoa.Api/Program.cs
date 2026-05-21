@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using NLog;
 using NLog.Web;
@@ -21,6 +22,7 @@ using TapHoa.Api.Middleware;
 using TapHoa.Application;
 using TapHoa.Infrastructure;
 using TapHoa.Persistence;
+using TapHoa.Persistence.Data;
 
 var logger = LogManager.Setup().LoadConfigurationFromFile("nlog.config").GetCurrentClassLogger();
 
@@ -65,6 +67,14 @@ try
     });
 
     var app = builder.Build();
+
+    // Tự động apply pending migrations và seed dữ liệu mẫu khi DB còn trống.
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.MigrateAsync();
+        await DataSeeder.SeedAsync(db);
+    }
 
     Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "storage", "uploads"));
 
