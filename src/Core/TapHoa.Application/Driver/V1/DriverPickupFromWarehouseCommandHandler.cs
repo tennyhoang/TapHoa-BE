@@ -34,7 +34,7 @@ public class DriverPickupFromWarehouseCommandHandler(IRepository<Order> orderRep
 
             try
             {
-                order.Ship();
+                order.StartShipping();
                 shipped++;
             }
             catch (OrderDomainException ex)

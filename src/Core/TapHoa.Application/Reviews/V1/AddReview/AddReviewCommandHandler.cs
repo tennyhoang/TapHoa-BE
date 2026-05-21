@@ -22,7 +22,7 @@ public class AddReviewCommandHandler(
 
         var hasPurchased = await orderRepo.Query()
             .AnyAsync(o => o.UserId == request.UserId
-                && o.Status == OrderStatus.Delivered
+                && o.Status == OrderStatus.Completed
                 && o.Items.Any(i => i.ProductId == request.ProductId),
                 cancellationToken);
 

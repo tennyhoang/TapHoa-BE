@@ -27,7 +27,7 @@ public class AgentCompletePickupCommandHandler(IRepository<Order> orderRepo)
 
         try
         {
-            order.Deliver();
+            order.Complete();
         }
         catch (OrderDomainException ex)
         {

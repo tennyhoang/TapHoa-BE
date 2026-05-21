@@ -31,11 +31,10 @@ public class UpdateOrderStatusCommandHandler(
         {
             switch (request.Status)
             {
-                case OrderStatus.Confirmed:    order.Confirm();                    break;
-                case OrderStatus.Shipping:     order.Ship();                       break;
-                case OrderStatus.ArrivedAtHub: order.ArriveAtHub();                break;
-                case OrderStatus.Delivered:    order.Deliver();                    break;
-                case OrderStatus.Cancelled:    order.Cancel(request.CancelReason); break;
+                case OrderStatus.ShippingToHub:        order.StartShipping();              break;
+                case OrderStatus.InHub_ReadyForPickup: order.MarkInHub();                  break;
+                case OrderStatus.Completed:            order.Complete();                   break;
+                case OrderStatus.Cancelled:            order.Cancel(request.CancelReason); break;
                 default:
                     return Result<OrderResponse>.Fail(
                         $"Trạng thái '{request.Status}' không hợp lệ.", "INVALID_STATUS");
@@ -46,7 +45,7 @@ public class UpdateOrderStatusCommandHandler(
             return Result<OrderResponse>.Fail(ex.Message, "INVALID_TRANSITION");
         }
 
-        // Hoàn kho Hub khi Admin hủy đơn (đơn ArrivedAtHub quá hạn, v.v.)
+        // Hoàn kho Hub khi Admin hủy đơn
         if (order.Status == OrderStatus.Cancelled)
         {
             foreach (var item in order.Items)
@@ -60,18 +59,18 @@ public class UpdateOrderStatusCommandHandler(
         // Entity đã được tracked — change tracker tự phát hiện mutation, không cần gọi Update().
         await orderRepo.SaveChangesAsync();
 
-        // Phát notification sau khi lưu thành công để đảm bảo tính nhất quán dữ liệu.
-        if (order.Status == OrderStatus.ArrivedAtHub)
+        // Phát notification sau khi Agent xác nhận hàng đã đến Hub.
+        if (order.Status == OrderStatus.InHub_ReadyForPickup)
         {
             await publisher.Publish(new OrderArrivedAtHubEvent(
-                OrderId:         order.Id,
-                UserId:          order.UserId,
-                CustomerEmail:   order.User.Email,
+                OrderId:          order.Id,
+                UserId:           order.UserId,
+                CustomerEmail:    order.User.Email,
                 CustomerFullName: order.User.FullName,
-                HubId:           order.HubId,
-                HubName:         order.Hub.Name,
-                HubAddress:      $"{order.Hub.Address}, {order.Hub.Ward}, {order.Hub.District}, {order.Hub.City}",
-                ArrivedAt:       order.ArrivedAtHubAt!.Value
+                HubId:            order.HubId,
+                HubName:          order.Hub.Name,
+                HubAddress:       $"{order.Hub.Address}, {order.Hub.Ward}, {order.Hub.District}, {order.Hub.City}",
+                ArrivedAt:        order.InHubAt!.Value
             ), cancellationToken);
         }
 

@@ -20,8 +20,9 @@ public class DeleteHubCommandHandler(
         // Guard: không xóa Hub còn đơn hàng chưa hoàn tất (tránh FK violation + logic sai)
         var hasActiveOrders = await orderRepo.AnyAsync(o =>
             o.HubId == request.Id &&
-            o.Status != OrderStatus.Delivered &&
-            o.Status != OrderStatus.Cancelled);
+            o.Status != OrderStatus.Completed &&
+            o.Status != OrderStatus.Cancelled &&
+            o.Status != OrderStatus.Refunded);
 
         if (hasActiveOrders)
             return Result<bool>.Fail(
