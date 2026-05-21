@@ -10,10 +10,25 @@ namespace TapHoa.Persistence.Data;
 /// </summary>
 public static class DataSeeder
 {
-    // GUIDs cố định — khớp với assign_roles.sql để không phá dữ liệu cũ nếu có.
+    // ── Fixed GUIDs — stable across reseeds ──────────────────────────────────
+    // Hubs
     static readonly Guid HubQ1Id = Guid.Parse("2685894a-0176-4cc2-9030-225b23f12f1e");
     static readonly Guid HubBtId = Guid.Parse("f01c8625-b9a1-4c61-ab85-7dc54721cf9d");
     static readonly Guid HubHnId = Guid.Parse("7a383c5e-4488-4c2f-b470-e5e8c51bcecf");
+
+    // Parent categories
+    static readonly Guid CatRauId  = Guid.Parse("a1000001-0000-0000-0000-000000000001");
+    static readonly Guid CatTraiId = Guid.Parse("a1000002-0000-0000-0000-000000000002");
+    static readonly Guid CatKhoId  = Guid.Parse("a1000003-0000-0000-0000-000000000003");
+    static readonly Guid CatTuoiId = Guid.Parse("a1000004-0000-0000-0000-000000000004");
+
+    // Child categories
+    static readonly Guid CatRauLaId    = Guid.Parse("b2000001-0000-0000-0000-000000000001");
+    static readonly Guid CatCuQuaId    = Guid.Parse("b2000002-0000-0000-0000-000000000002");
+    static readonly Guid CatNhietDoiId = Guid.Parse("b2000003-0000-0000-0000-000000000003");
+    static readonly Guid CatMuaId      = Guid.Parse("b2000004-0000-0000-0000-000000000004");
+    static readonly Guid CatThitCaId   = Guid.Parse("b2000005-0000-0000-0000-000000000005");
+    static readonly Guid CatTrungSuaId = Guid.Parse("b2000006-0000-0000-0000-000000000006");
 
     public static async Task SeedAsync(AppDbContext db)
     {
@@ -126,18 +141,20 @@ public static class DataSeeder
         );
 
         // ── 3. Categories ────────────────────────────────────────────────────
-        var catRau  = new Category { Name = "Rau củ quả",            Description = "Rau sạch VietGAP, thu hoạch hàng ngày" };
-        var catTrai = new Category { Name = "Trái cây",              Description = "Trái cây tươi, nhập hàng ngày" };
-        var catKho  = new Category { Name = "Hàng khô & gia vị",    Description = "Ngũ cốc, gia vị, thực phẩm khô" };
-        var catTuoi = new Category { Name = "Thực phẩm tươi sống",  Description = "Thịt, cá, trứng, sữa tươi" };
+        // Parent categories — IDs cố định để dễ debug và test
+        var catRau  = new Category { Id = CatRauId,  Name = "Rau củ quả",           Description = "Rau sạch VietGAP, thu hoạch hàng ngày" };
+        var catTrai = new Category { Id = CatTraiId, Name = "Trái cây",             Description = "Trái cây tươi, nhập hàng ngày" };
+        var catKho  = new Category { Id = CatKhoId,  Name = "Hàng khô & gia vị",   Description = "Ngũ cốc, gia vị, thực phẩm khô" };
+        var catTuoi = new Category { Id = CatTuoiId, Name = "Thực phẩm tươi sống", Description = "Thịt, cá, trứng, sữa tươi" };
         db.Categories.AddRange(catRau, catTrai, catKho, catTuoi);
 
-        var catRauLa    = new Category { Name = "Rau lá xanh",         Parent = catRau };
-        var catCuQua    = new Category { Name = "Củ & Quả",            Parent = catRau };
-        var catNhietDoi = new Category { Name = "Trái cây nhiệt đới",  Parent = catTrai };
-        var catMua      = new Category { Name = "Trái cây theo mùa",   Parent = catTrai };
-        var catThitCa   = new Category { Name = "Thịt & Cá",           Parent = catTuoi };
-        var catTrungSua = new Category { Name = "Trứng & Sữa",         Parent = catTuoi };
+        // Child categories — ParentId được set qua navigation property Parent
+        var catRauLa    = new Category { Id = CatRauLaId,    Name = "Rau lá xanh",        Parent = catRau };
+        var catCuQua    = new Category { Id = CatCuQuaId,    Name = "Củ & Quả",           Parent = catRau };
+        var catNhietDoi = new Category { Id = CatNhietDoiId, Name = "Trái cây nhiệt đới", Parent = catTrai };
+        var catMua      = new Category { Id = CatMuaId,      Name = "Trái cây theo mùa",  Parent = catTrai };
+        var catThitCa   = new Category { Id = CatThitCaId,   Name = "Thịt & Cá",          Parent = catTuoi };
+        var catTrungSua = new Category { Id = CatTrungSuaId, Name = "Trứng & Sữa",        Parent = catTuoi };
         db.Categories.AddRange(catRauLa, catCuQua, catNhietDoi, catMua, catThitCa, catTrungSua);
 
         // ── 4. Products ──────────────────────────────────────────────────────

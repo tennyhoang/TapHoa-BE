@@ -44,8 +44,11 @@ public class GetProductsQueryHandler(
         if (!string.IsNullOrWhiteSpace(request.Search))
             query = query.Where(p => p.Name.ToLower().Contains(request.Search.ToLower()));
 
+        // Match exact category OR any of its direct children (2-level hierarchy).
         if (request.CategoryId.HasValue)
-            query = query.Where(p => p.CategoryId == request.CategoryId);
+            query = query.Where(p =>
+                p.CategoryId == request.CategoryId ||
+                p.Category.ParentId == request.CategoryId);
 
         if (request.MinPrice.HasValue)
             query = query.Where(p => p.Price >= request.MinPrice);
