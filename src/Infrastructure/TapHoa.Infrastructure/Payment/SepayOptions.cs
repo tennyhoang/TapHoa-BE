@@ -3,5 +3,5 @@ namespace TapHoa.Infrastructure.Payment;
 public class SepayOptions
 {
     public const string Section = "SePay";
-    public string SecretKey { get; set; } = string.Empty;
+    public string ApiKey { get; set; } = string.Empty;
 }
