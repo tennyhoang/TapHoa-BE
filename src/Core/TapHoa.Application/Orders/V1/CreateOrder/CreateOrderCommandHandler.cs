@@ -52,13 +52,18 @@ public class CreateOrderCommandHandler(
             UnitPrice = c.Product.DiscountPrice ?? c.Product.Price
         }).ToList();
 
+        var orderId = Guid.NewGuid();
+        var paymentRef = "TH" + orderId.ToString("N")[..8].ToUpper();
+
         var order = new Order
         {
-            UserId    = request.UserId,
-            HubId     = request.HubId,
+            Id          = orderId,
+            UserId      = request.UserId,
+            HubId       = request.HubId,
             TotalAmount = orderItems.Sum(i => i.UnitPrice * i.Quantity),
-            Note      = request.Note,
-            Items     = orderItems
+            Note        = request.Note,
+            Items       = orderItems,
+            PaymentRef  = paymentRef,
         };
 
         await orderRepo.AddAsync(order);
@@ -93,6 +98,8 @@ public class CreateOrderCommandHandler(
         }).ToList(),
         o.CreatedAt,
         o.CancelReason,
+        o.PaymentRef,
+        o.PaidAt,
         o.ShippingToHubAt,
         o.InHubAt,
         o.CompletedAt,

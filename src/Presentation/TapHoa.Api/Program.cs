@@ -14,6 +14,7 @@ using TapHoa.Api.Endpoints.V1.Auth;
 using TapHoa.Api.Endpoints.V1.Cart;
 using TapHoa.Api.Endpoints.V1.Categories;
 using TapHoa.Api.Endpoints.V1.Orders;
+using TapHoa.Api.Endpoints.V1.Payment;
 using TapHoa.Api.Endpoints.V1.Products;
 using TapHoa.Api.Endpoints.V1.Reviews;
 using TapHoa.Api.Endpoints.V1.Upload;
@@ -122,6 +123,7 @@ try
     app.MapAgentEndpoints();
     app.MapDriverEndpoints();
     app.MapClaimEndpoints();
+    app.MapPaymentEndpoints();
 
     app.Run();
 }

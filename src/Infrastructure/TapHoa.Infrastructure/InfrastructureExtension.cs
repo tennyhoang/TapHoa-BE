@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using TapHoa.Application.Contracts;
 using TapHoa.Infrastructure.Auth;
 using TapHoa.Infrastructure.Cloudinary;
+using TapHoa.Infrastructure.Payment;
 
 namespace TapHoa.Infrastructure;
 
@@ -26,6 +27,9 @@ public static class InfrastructureExtension
         // Cloudinary — đọc từ appsettings hoặc env vars (Cloudinary__CloudName, ...)
         services.Configure<CloudinarySettings>(configuration.GetSection("Cloudinary"));
         services.AddScoped<ICloudinaryService, CloudinaryService>();
+
+        // SePay — đọc từ appsettings hoặc env var SePay__ApiKey
+        services.Configure<SepayOptions>(configuration.GetSection(SepayOptions.Section));
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

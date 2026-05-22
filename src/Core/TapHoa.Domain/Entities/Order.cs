@@ -9,9 +9,11 @@ public class Order : BaseEntity
     // Deprecated trong luồng O2O — giữ lại nullable để không mất dữ liệu đơn cũ.
     public Guid? ShippingAddressId { get; set; }
     public decimal TotalAmount { get; set; }
-    public OrderStatus Status { get; private set; } = OrderStatus.Paid_WaitingForBatch;
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
     public string? Note { get; set; }
     public string? CancelReason { get; private set; }
+    public string? PaymentRef { get; set; }          // Mã tham chiếu chuyển khoản, e.g. TH2685894A
+    public DateTime? PaidAt { get; private set; }
     public DateTime? ShippingToHubAt { get; private set; }
     public DateTime? InHubAt { get; private set; }
     public DateTime? CompletedAt { get; private set; }
@@ -26,6 +28,16 @@ public class Order : BaseEntity
     public Hub Hub { get; set; } = default!;
     public ICollection<OrderItem> Items { get; set; } = [];
     public ICollection<OrderClaim> Claims { get; set; } = [];
+
+    // SePay webhook xác nhận chuyển khoản thành công
+    public void ConfirmPayment()
+    {
+        GuardTerminal();
+        if (Status != OrderStatus.PendingPayment)
+            throw new OrderDomainException($"Đơn hàng không ở trạng thái chờ thanh toán (trạng thái hiện tại: '{Status}').");
+        Status = OrderStatus.Paid_WaitingForBatch;
+        PaidAt = DateTime.UtcNow;
+    }
 
     // Driver nhận lô gom đêm → bắt đầu giao đến Hub
     public void StartShipping()
@@ -60,8 +72,8 @@ public class Order : BaseEntity
     public void Cancel(string? reason = null)
     {
         GuardTerminal();
-        if (Status != OrderStatus.Paid_WaitingForBatch)
-            throw new OrderDomainException("Chỉ có thể hủy đơn hàng đang chờ gom hàng.");
+        if (Status != OrderStatus.PendingPayment && Status != OrderStatus.Paid_WaitingForBatch)
+            throw new OrderDomainException("Chỉ có thể hủy đơn hàng đang chờ thanh toán hoặc chờ gom hàng.");
         Status = OrderStatus.Cancelled;
         CancelledAt = DateTime.UtcNow;
         CancelReason = reason?.Trim();
