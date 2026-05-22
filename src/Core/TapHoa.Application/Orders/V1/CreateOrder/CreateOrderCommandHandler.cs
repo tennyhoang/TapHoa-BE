@@ -53,7 +53,8 @@ public class CreateOrderCommandHandler(
         }).ToList();
 
         var orderId = Guid.NewGuid();
-        var paymentRef = "TH" + orderId.ToString("N")[..8].ToUpper();
+        var isCod = string.Equals(request.PaymentMethod, "COD", StringComparison.OrdinalIgnoreCase);
+        var paymentRef = isCod ? null : "TH" + orderId.ToString("N")[..8].ToUpper();
 
         var order = new Order
         {
@@ -65,6 +66,9 @@ public class CreateOrderCommandHandler(
             Items       = orderItems,
             PaymentRef  = paymentRef,
         };
+
+        // COD: khách trả tiền mặt khi lấy hàng → bỏ qua bước chờ thanh toán
+        if (isCod) order.ConfirmPayment(); // PendingPayment → Paid_WaitingForBatch
 
         await orderRepo.AddAsync(order);
 
