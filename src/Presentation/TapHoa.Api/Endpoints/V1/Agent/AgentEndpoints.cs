@@ -52,22 +52,14 @@ public static class AgentEndpoints
                         : Results.Conflict(new { result.Error, result.ErrorCode });
         });
 
-        // Xác nhận đã giao hàng tận tay khách ra lấy (ArrivedAtHub → Delivered)
-        group.MapPatch("/orders/{id:guid}/complete-pickup", async (
-            Guid id, ClaimsPrincipal user, IMediator mediator) =>
-        {
-            if (!TryGetAgentHubId(user, out var hubId))
-                return Results.Forbid();
+        // PATCH /api/v1/agent/orders/{id}/complete-pickup  (endpoint gốc — giữ nguyên)
+        // POST  /api/v1/agent/orders/{id}/confirm-pickup   (alias mới theo tên nghiệp vụ)
+        // Cả hai cùng chuyển InHub_ReadyForPickup → Completed và ẩn đơn khỏi danh sách
+        group.MapPatch("/orders/{id:guid}/complete-pickup", ConfirmPickup)
+             .WithName("AgentCompletePickup");
 
-            var result = await mediator.Send(new AgentCompletePickupCommand(id, GetUserId(user), hubId));
-            return result.IsSuccess
-                ? Results.Ok(result.Value)
-                : result.ErrorCode is "ORDER_NOT_FOUND"
-                    ? Results.NotFound(new { result.Error, result.ErrorCode })
-                    : result.ErrorCode is "HUB_FORBIDDEN"
-                        ? Results.Forbid()
-                        : Results.Conflict(new { result.Error, result.ErrorCode });
-        });
+        group.MapPost("/orders/{id:guid}/confirm-pickup", ConfirmPickup)
+             .WithName("AgentConfirmPickup");
 
         // Báo cáo hàng lỗi/thất thoát tại Hub
         group.MapPost("/report-damaged", async (
@@ -93,6 +85,23 @@ public static class AgentEndpoints
                         ? Results.Forbid()
                         : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
+    }
+
+    // Handler dùng chung cho cả complete-pickup (PATCH) và confirm-pickup (POST)
+    private static async Task<IResult> ConfirmPickup(
+        Guid id, ClaimsPrincipal user, IMediator mediator)
+    {
+        if (!TryGetAgentHubId(user, out var hubId))
+            return Results.Forbid();
+
+        var result = await mediator.Send(new AgentCompletePickupCommand(id, GetUserId(user), hubId));
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : result.ErrorCode is "ORDER_NOT_FOUND"
+                ? Results.NotFound(new { result.Error, result.ErrorCode })
+                : result.ErrorCode is "HUB_FORBIDDEN"
+                    ? Results.Forbid()
+                    : Results.Conflict(new { result.Error, result.ErrorCode });
     }
 
     private static Guid GetUserId(ClaimsPrincipal user) =>
