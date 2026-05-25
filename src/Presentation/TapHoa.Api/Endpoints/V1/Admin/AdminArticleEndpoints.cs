@@ -1,6 +1,9 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using TapHoa.Domain.Entities;
+using TapHoa.Persistence.Data;
 
 namespace TapHoa.Api.Endpoints.V1.Admin;
 
@@ -8,11 +11,69 @@ public static class AdminArticleEndpoints
 {
     public static void MapAdminArticleEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/admin/articles")
+        // ── Public ──────────────────────────────────────────────
+        app.MapGet("/api/v1/articles", async (AppDbContext db) =>
+        {
+            var articles = await db.Articles
+                .Where(a => a.IsPublished)
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => new
+                {
+                    a.Id,
+                    a.Title,
+                    a.Excerpt,
+                    a.Content,
+                    a.Category,
+                    a.ImageUrl,
+                    a.ReadTimeMinutes,
+                    a.CreatedAt,
+                })
+                .ToListAsync();
+            return Results.Ok(articles);
+        })
+        .WithTags("Articles");
+
+        // ── Admin ────────────────────────────────────────────────
+        var admin = app.MapGroup("/api/v1/admin/articles")
             .WithTags("Admin - Articles")
             .RequireAuthorization("Admin");
 
-        group.MapPost("/generate", async (
+        admin.MapGet("/", async (AppDbContext db) =>
+        {
+            var articles = await db.Articles
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => new { a.Id, a.Title, a.Category, a.IsPublished, a.CreatedAt })
+                .ToListAsync();
+            return Results.Ok(articles);
+        });
+
+        admin.MapPost("/", async ([FromBody] SaveArticleRequest req, AppDbContext db) =>
+        {
+            var article = new Article
+            {
+                Title          = req.Title,
+                Excerpt        = req.Excerpt,
+                Content        = req.Content,
+                Category       = req.Category,
+                ImageUrl       = req.ImageUrl,
+                ReadTimeMinutes = req.ReadTimeMinutes,
+                IsPublished    = true,
+            };
+            db.Articles.Add(article);
+            await db.SaveChangesAsync();
+            return Results.Ok(new { article.Id });
+        });
+
+        admin.MapDelete("/{id:guid}", async (Guid id, AppDbContext db) =>
+        {
+            var article = await db.Articles.FindAsync(id);
+            if (article is null) return Results.NotFound();
+            db.Articles.Remove(article);
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
+
+        admin.MapPost("/generate", async (
             [FromBody] GenerateArticleRequest request,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration) =>
@@ -43,10 +104,7 @@ public static class AdminArticleEndpoints
             var body = JsonSerializer.Serialize(new
             {
                 model = "llama-3.3-70b-versatile",
-                messages = new[]
-                {
-                    new { role = "user", content = prompt }
-                },
+                messages = new[] { new { role = "user", content = prompt } },
                 temperature = 0.7
             });
 
@@ -66,7 +124,6 @@ public static class AdminArticleEndpoints
                     return Results.BadRequest(new { error = $"Groq API lỗi: {httpResponse.StatusCode}", detail = json });
 
                 using var doc = JsonDocument.Parse(json);
-
                 var text = doc.RootElement
                     .GetProperty("choices")[0]
                     .GetProperty("message")
@@ -90,3 +147,10 @@ public static class AdminArticleEndpoints
 }
 
 public record GenerateArticleRequest(string Topic, string Category);
+public record SaveArticleRequest(
+    string Title,
+    string Excerpt,
+    string Content,
+    string Category,
+    string? ImageUrl,
+    int ReadTimeMinutes = 5);

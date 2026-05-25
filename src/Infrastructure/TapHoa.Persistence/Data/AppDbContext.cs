@@ -19,6 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<HubInventory> HubInventories => Set<HubInventory>();
     public DbSet<OrderClaim> OrderClaims => Set<OrderClaim>();
     public DbSet<OrderDamagedReport> OrderDamagedReports => Set<OrderDamagedReport>();
+    public DbSet<Article> Articles => Set<Article>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -132,6 +133,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .OnDelete(DeleteBehavior.Cascade);
 
             e.Property(hi => hi.Stock).HasDefaultValue(0);
+        });
+
+        modelBuilder.Entity<Article>(e =>
+        {
+            e.Property(a => a.Title).HasMaxLength(200).IsRequired();
+            e.Property(a => a.Excerpt).HasMaxLength(500).IsRequired();
+            e.Property(a => a.Category).HasMaxLength(100).IsRequired();
+            e.Property(a => a.ImageUrl).HasMaxLength(2048);
         });
 
         modelBuilder.Entity<OrderDamagedReport>(e =>
