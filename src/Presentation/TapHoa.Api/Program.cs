@@ -46,6 +46,7 @@ try
     builder.Host.UseNLog();
 
     builder.Services.AddOpenApi();
+    builder.Services.AddHttpClient("gemini");
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddPersistence(builder.Configuration);
@@ -118,6 +119,7 @@ try
     app.MapReviewEndpoints();
     app.MapUploadEndpoints();
     app.MapAdminRevenueEndpoints();
+    app.MapAdminArticleEndpoints();
     app.MapAdminLogisticsEndpoints();
     app.MapHubEndpoints();
     app.MapAgentEndpoints();
