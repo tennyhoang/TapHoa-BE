@@ -9,7 +9,9 @@ namespace TapHoa.Application.Orders.V1.CreateOrder;
 public class CreateOrderCommandHandler(
     IRepository<Order> orderRepo,
     IRepository<CartItem> cartRepo,
-    IRepository<Hub> hubRepo)
+    IRepository<Hub> hubRepo,
+    IRepository<User> userRepo,
+    IRepository<WalletTransaction> walletTransactionRepo)
     : IRequestHandler<CreateOrderCommand, OrderResponse>
 {
     public async Task<OrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -52,14 +54,36 @@ public class CreateOrderCommandHandler(
             UnitPrice = c.Product.DiscountPrice ?? c.Product.Price
         }).ToList();
 
+        var orderId = Guid.NewGuid();
+        var isCod    = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
+        var isWallet = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
+        var paymentRef = (isCod || isWallet) ? null : "TH" + orderId.ToString("N")[..8].ToUpper();
+
+        var totalAmount = orderItems.Sum(i => i.UnitPrice * i.Quantity);
+
+        // Wallet: kiểm tra và trừ số dư trước khi tạo đơn
+        User? buyer = null;
+        if (isWallet)
+        {
+            buyer = await userRepo.GetByIdAsync(request.UserId)
+                ?? throw new KeyNotFoundException("Người dùng không tồn tại.");
+            buyer.DebitWallet(totalAmount); // throws OrderDomainException if insufficient
+            userRepo.Update(buyer);         // mark modified so EF Core saves the balance change
+        }
+
         var order = new Order
         {
-            UserId    = request.UserId,
-            HubId     = request.HubId,
-            TotalAmount = orderItems.Sum(i => i.UnitPrice * i.Quantity),
-            Note      = request.Note,
-            Items     = orderItems
+            Id          = orderId,
+            UserId      = request.UserId,
+            HubId       = request.HubId,
+            TotalAmount = totalAmount,
+            Note        = request.Note,
+            Items       = orderItems,
+            PaymentRef  = paymentRef,
         };
+
+        // COD / Wallet: bỏ qua bước chờ thanh toán
+        if (isCod || isWallet) order.ConfirmPayment(); // PendingPayment → Paid_WaitingForBatch
 
         await orderRepo.AddAsync(order);
 
@@ -67,6 +91,20 @@ public class CreateOrderCommandHandler(
             cartRepo.Remove(item);
 
         await orderRepo.SaveChangesAsync();
+
+        if (isWallet && buyer is not null)
+        {
+            var shortRef = orderId.ToString()[..8].ToUpper();
+            await walletTransactionRepo.AddAsync(new WalletTransaction
+            {
+                UserId      = buyer.Id,
+                Amount      = totalAmount,
+                Type        = WalletTransactionType.Debit,
+                Description = $"Thanh toán đơn hàng #{shortRef}",
+                OrderId     = orderId,
+            });
+            await walletTransactionRepo.SaveChangesAsync();
+        }
 
         return MapToResponse(order, hub, cartItems);
     }
@@ -93,6 +131,8 @@ public class CreateOrderCommandHandler(
         }).ToList(),
         o.CreatedAt,
         o.CancelReason,
+        o.PaymentRef,
+        o.PaidAt,
         o.ShippingToHubAt,
         o.InHubAt,
         o.CompletedAt,

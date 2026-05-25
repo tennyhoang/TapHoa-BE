@@ -150,10 +150,10 @@ public static class DataSeeder
 
         // ── 3. Categories ────────────────────────────────────────────────────
         // Parent categories — IDs cố định để dễ debug và test
-        var catRau  = new Category { Id = CatRauId,  Name = "Rau củ quả",           Description = "Rau sạch VietGAP, thu hoạch hàng ngày" };
-        var catTrai = new Category { Id = CatTraiId, Name = "Trái cây",             Description = "Trái cây tươi, nhập hàng ngày" };
-        var catKho  = new Category { Id = CatKhoId,  Name = "Hàng khô & gia vị",   Description = "Ngũ cốc, gia vị, thực phẩm khô" };
-        var catTuoi = new Category { Id = CatTuoiId, Name = "Thực phẩm tươi sống", Description = "Thịt, cá, trứng, sữa tươi" };
+        var catRau  = new Category { Id = CatRauId,  Name = "Rau củ quả",           Description = "Rau sạch VietGAP, thu hoạch hàng ngày", ImageUrl = "/categories/cat-rau-cu.jpg" };
+        var catTrai = new Category { Id = CatTraiId, Name = "Trái cây",             Description = "Trái cây tươi, nhập hàng ngày",          ImageUrl = "/categories/cat-trai-cay.jpg" };
+        var catKho  = new Category { Id = CatKhoId,  Name = "Hàng khô & gia vị",   Description = "Ngũ cốc, gia vị, thực phẩm khô",         ImageUrl = "/categories/cat-hang-kho.jpg" };
+        var catTuoi = new Category { Id = CatTuoiId, Name = "Thực phẩm tươi sống", Description = "Thịt, cá, trứng, sữa tươi",              ImageUrl = "/categories/cat-tuoi-song.jpg" };
         db.Categories.AddRange(catRau, catTrai, catKho, catTuoi);
 
         // Child categories — ParentId được set qua navigation property Parent
@@ -169,43 +169,43 @@ public static class DataSeeder
         var products = new List<Product>
         {
             // Rau lá xanh
-            new() { Name = "Rau muống",           Category = catRauLa,    Price = 8_000,  Stock = 200, Description = "Rau muống sạch VietGAP, bó 300g" },
-            new() { Name = "Cải xanh",            Category = catRauLa,    Price = 12_000, Stock = 150, Description = "Cải xanh non tươi, bó 500g" },
-            new() { Name = "Xà lách",             Category = catRauLa,    Price = 15_000, DiscountPrice = 12_000, Stock = 100, Description = "Xà lách xoăn Đà Lạt, bó 300g" },
-            new() { Name = "Cải bó xôi",          Category = catRauLa,    Price = 18_000, Stock = 80,  Description = "Spinach organic, túi 200g" },
+            new() { Name = "Rau muống",           Category = catRauLa,    Price = 8_000,   Stock = 200, Description = "Rau muống sạch VietGAP, bó 300g",                       ThumbnailUrl = "/products/rau-muong.jpg" },
+            new() { Name = "Cải xanh",            Category = catRauLa,    Price = 12_000,  Stock = 150, Description = "Cải xanh non tươi, bó 500g",                            ThumbnailUrl = "/products/cai-xanh.jpg" },
+            new() { Name = "Xà lách",             Category = catRauLa,    Price = 15_000,  DiscountPrice = 12_000, Stock = 100, Description = "Xà lách xoăn Đà Lạt, bó 300g", ThumbnailUrl = "/products/xa-lach.jpg" },
+            new() { Name = "Cải bó xôi",          Category = catRauLa,    Price = 18_000,  Stock = 80,  Description = "Spinach organic, túi 200g",                             ThumbnailUrl = "/products/cai-bo-xoi.jpg" },
 
             // Củ & Quả
-            new() { Name = "Cà rốt Đà Lạt",      Category = catCuQua,    Price = 18_000, Stock = 120, Description = "Cà rốt Đà Lạt loại 1, 500g" },
-            new() { Name = "Khoai tây",           Category = catCuQua,    Price = 22_000, Stock = 200, Description = "Khoai tây Đà Lạt, 1kg" },
-            new() { Name = "Bí đỏ",               Category = catCuQua,    Price = 25_000, Stock = 80,  Description = "Bí đỏ hokaido tươi, 1kg" },
-            new() { Name = "Củ cải trắng",        Category = catCuQua,    Price = 14_000, Stock = 100, Description = "Củ cải trắng Đà Lạt, 500g" },
-            new() { Name = "Cà chua bi",          Category = catCuQua,    Price = 28_000, DiscountPrice = 24_000, Stock = 90, Description = "Cà chua bi ngọt, hộp 500g" },
+            new() { Name = "Cà rốt Đà Lạt",      Category = catCuQua,    Price = 18_000,  Stock = 120, Description = "Cà rốt Đà Lạt loại 1, 500g",                           ThumbnailUrl = "/products/ca-rot.jpg" },
+            new() { Name = "Khoai tây",           Category = catCuQua,    Price = 22_000,  Stock = 200, Description = "Khoai tây Đà Lạt, 1kg",                                ThumbnailUrl = "/products/khoai-tay.jpg" },
+            new() { Name = "Bí đỏ",               Category = catCuQua,    Price = 25_000,  Stock = 80,  Description = "Bí đỏ hokaido tươi, 1kg",                              ThumbnailUrl = "/products/bi-do.jpg" },
+            new() { Name = "Củ cải trắng",        Category = catCuQua,    Price = 14_000,  Stock = 100, Description = "Củ cải trắng Đà Lạt, 500g",                            ThumbnailUrl = "/products/cu-cai-trang.jpg" },
+            new() { Name = "Cà chua bi",          Category = catCuQua,    Price = 28_000,  DiscountPrice = 24_000, Stock = 90, Description = "Cà chua bi ngọt, hộp 500g",      ThumbnailUrl = "/products/ca-chua-bi.jpg" },
 
             // Trái cây nhiệt đới
-            new() { Name = "Chuối sứ",            Category = catNhietDoi, Price = 30_000, Stock = 150, Description = "Chuối sứ Cần Thơ chín vàng, 1kg" },
-            new() { Name = "Xoài cát Hòa Lộc",   Category = catNhietDoi, Price = 65_000, DiscountPrice = 55_000, Stock = 60, Description = "Xoài chín thơm ngọt, 1kg" },
-            new() { Name = "Dứa mật",             Category = catNhietDoi, Price = 35_000, Stock = 90,  Description = "Dứa mật Tiền Giang, 1 quả ~1kg" },
-            new() { Name = "Ổi lê Đài Loan",      Category = catNhietDoi, Price = 45_000, Stock = 70,  Description = "Ổi giòn ngọt, 1kg" },
+            new() { Name = "Chuối sứ",            Category = catNhietDoi, Price = 30_000,  Stock = 150, Description = "Chuối sứ Cần Thơ chín vàng, 1kg",                      ThumbnailUrl = "/products/chuoi-su.jpg" },
+            new() { Name = "Xoài cát Hòa Lộc",   Category = catNhietDoi, Price = 65_000,  DiscountPrice = 55_000, Stock = 60, Description = "Xoài chín thơm ngọt, 1kg",       ThumbnailUrl = "/products/xoai.jpg" },
+            new() { Name = "Dứa mật",             Category = catNhietDoi, Price = 35_000,  Stock = 90,  Description = "Dứa mật Tiền Giang, 1 quả ~1kg",                       ThumbnailUrl = "/products/dua-mat.jpg" },
+            new() { Name = "Ổi lê Đài Loan",      Category = catNhietDoi, Price = 45_000,  Stock = 70,  Description = "Ổi giòn ngọt, 1kg",                                    ThumbnailUrl = "/products/oi-le.jpg" },
 
             // Trái cây theo mùa
-            new() { Name = "Bưởi da xanh",        Category = catMua,      Price = 45_000, Stock = 70,  Description = "Bưởi da xanh Bến Tre ngọt, 1 quả" },
-            new() { Name = "Cam sành",            Category = catMua,      Price = 38_000, DiscountPrice = 32_000, Stock = 110, Description = "Cam sành Vĩnh Long, 1kg" },
-            new() { Name = "Nho xanh không hạt",  Category = catMua,      Price = 75_000, Stock = 50,  Description = "Nho Mỹ không hạt, hộp 500g" },
+            new() { Name = "Bưởi da xanh",        Category = catMua,      Price = 45_000,  Stock = 70,  Description = "Bưởi da xanh Bến Tre ngọt, 1 quả",                     ThumbnailUrl = "/products/buoi-da-xanh.jpg" },
+            new() { Name = "Cam sành",            Category = catMua,      Price = 38_000,  DiscountPrice = 32_000, Stock = 110, Description = "Cam sành Vĩnh Long, 1kg",        ThumbnailUrl = "/products/cam-sanh.jpg" },
+            new() { Name = "Nho xanh không hạt",  Category = catMua,      Price = 75_000,  Stock = 50,  Description = "Nho Mỹ không hạt, hộp 500g",                           ThumbnailUrl = "/products/nho-xanh.jpg" },
 
             // Hàng khô & gia vị
-            new() { Name = "Gạo ST25",            Category = catKho,      Price = 35_000, Stock = 300, Description = "Gạo ST25 Sóc Trăng, túi 2kg — Gạo ngon nhất thế giới" },
-            new() { Name = "Đậu xanh cà",        Category = catKho,      Price = 28_000, Stock = 200, Description = "Đậu xanh sạch, túi 500g" },
-            new() { Name = "Nước mắm Phú Quốc",  Category = catKho,      Price = 55_000, DiscountPrice = 48_000, Stock = 150, Description = "Nước mắm 40 độ đạm truyền thống, chai 500ml" },
+            new() { Name = "Gạo ST25",            Category = catKho,      Price = 35_000,  Stock = 300, Description = "Gạo ST25 Sóc Trăng, túi 2kg — Gạo ngon nhất thế giới", ThumbnailUrl = "/products/gao-st25.jpg" },
+            new() { Name = "Đậu xanh cà",         Category = catKho,      Price = 28_000,  Stock = 200, Description = "Đậu xanh sạch, túi 500g",                              ThumbnailUrl = "/products/dau-xanh.jpg" },
+            new() { Name = "Nước mắm Phú Quốc",   Category = catKho,      Price = 55_000,  DiscountPrice = 48_000, Stock = 150, Description = "Nước mắm 40 độ đạm truyền thống, chai 500ml", ThumbnailUrl = "/products/nuoc-mam.jpg" },
 
             // Thịt & Cá
-            new() { Name = "Thịt heo ba chỉ",    Category = catThitCa,   Price = 95_000, Stock = 50,  Description = "Ba chỉ heo tươi, miếng 500g" },
-            new() { Name = "Cá basa fillet",      Category = catThitCa,   Price = 80_000, DiscountPrice = 72_000, Stock = 60, Description = "Cá basa phi lê sạch, túi 500g" },
-            new() { Name = "Tôm thẻ chân trắng", Category = catThitCa,   Price = 120_000, Stock = 40, Description = "Tôm thẻ size 40con/kg, 500g" },
+            new() { Name = "Thịt heo ba chỉ",    Category = catThitCa,   Price = 95_000,  Stock = 50,  Description = "Ba chỉ heo tươi, miếng 500g",                          ThumbnailUrl = "/products/thit-heo-ba-chi.jpg" },
+            new() { Name = "Cá basa fillet",      Category = catThitCa,   Price = 80_000,  DiscountPrice = 72_000, Stock = 60, Description = "Cá basa phi lê sạch, túi 500g",  ThumbnailUrl = "/products/ca-basa.jpg" },
+            new() { Name = "Tôm thẻ chân trắng", Category = catThitCa,   Price = 120_000, Stock = 40,  Description = "Tôm thẻ size 40con/kg, 500g",                          ThumbnailUrl = "/products/tom-the.jpg" },
 
             // Trứng & Sữa
-            new() { Name = "Trứng gà ta",         Category = catTrungSua, Price = 42_000, Stock = 300, Description = "Trứng gà ta thả vườn, vỉ 10 quả" },
-            new() { Name = "Sữa tươi Vinamilk",  Category = catTrungSua, Price = 35_000, Stock = 200, Description = "Sữa tươi tiệt trùng không đường, hộp 1L" },
-            new() { Name = "Phô mai Con Bò Cười", Category = catTrungSua, Price = 55_000, DiscountPrice = 49_000, Stock = 80, Description = "Phô mai tam giác, hộp 8 miếng" },
+            new() { Name = "Trứng gà ta",         Category = catTrungSua, Price = 42_000,  Stock = 300, Description = "Trứng gà ta thả vườn, vỉ 10 quả",                     ThumbnailUrl = "/products/trung-ga.jpg" },
+            new() { Name = "Sữa tươi Vinamilk",   Category = catTrungSua, Price = 35_000,  Stock = 200, Description = "Sữa tươi tiệt trùng không đường, hộp 1L",              ThumbnailUrl = "/products/sua-tuoi.jpg" },
+            new() { Name = "Phô mai Con Bò Cười", Category = catTrungSua, Price = 55_000,  DiscountPrice = 49_000, Stock = 80, Description = "Phô mai tam giác, hộp 8 miếng",  ThumbnailUrl = "/products/pho-mai.jpg" },
         };
         db.Products.AddRange(products);
 

@@ -59,7 +59,6 @@ public class UpdateOrderStatusCommandHandler(
         // Entity đã được tracked — change tracker tự phát hiện mutation, không cần gọi Update().
         await orderRepo.SaveChangesAsync();
 
-        // Phát notification sau khi Agent xác nhận hàng đã đến Hub.
         if (order.Status == OrderStatus.InHub_ReadyForPickup)
         {
             await publisher.Publish(new OrderArrivedAtHubEvent(
@@ -71,6 +70,16 @@ public class UpdateOrderStatusCommandHandler(
                 HubName:          order.Hub.Name,
                 HubAddress:       $"{order.Hub.Address}, {order.Hub.Ward}, {order.Hub.District}, {order.Hub.City}",
                 ArrivedAt:        order.InHubAt!.Value
+            ), cancellationToken);
+        }
+
+        if (order.Status == OrderStatus.Completed)
+        {
+            await publisher.Publish(new OrderCompletedEvent(
+                OrderId:     order.Id,
+                UserId:      order.UserId,
+                TotalAmount: order.TotalAmount,
+                CompletedAt: order.CompletedAt!.Value
             ), cancellationToken);
         }
 

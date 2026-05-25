@@ -4,7 +4,9 @@ using Microsoft.Extensions.FileProviders;
 using NLog;
 using NLog.Web;
 using Scalar.AspNetCore;
+using TapHoa.Api.BackgroundJobs;
 using TapHoa.Api.Endpoints.V1.Admin;
+using TapHoa.Api.Endpoints.V1.Wallet;
 using TapHoa.Api.Endpoints.V1.Agent;
 using TapHoa.Api.Endpoints.V1.Addresses;
 using TapHoa.Api.Endpoints.V1.Claims;
@@ -14,6 +16,7 @@ using TapHoa.Api.Endpoints.V1.Auth;
 using TapHoa.Api.Endpoints.V1.Cart;
 using TapHoa.Api.Endpoints.V1.Categories;
 using TapHoa.Api.Endpoints.V1.Orders;
+using TapHoa.Api.Endpoints.V1.Payment;
 using TapHoa.Api.Endpoints.V1.Products;
 using TapHoa.Api.Endpoints.V1.Reviews;
 using TapHoa.Api.Endpoints.V1.Upload;
@@ -45,6 +48,8 @@ try
     builder.Host.UseNLog();
 
     builder.Services.AddOpenApi();
+    builder.Services.AddHttpClient("groq");
+    builder.Services.AddHostedService<NightBatchJob>();
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddPersistence(builder.Configuration);
@@ -117,11 +122,15 @@ try
     app.MapReviewEndpoints();
     app.MapUploadEndpoints();
     app.MapAdminRevenueEndpoints();
+    app.MapAdminArticleEndpoints();
+    app.MapAdminWalletEndpoints();
     app.MapAdminLogisticsEndpoints();
     app.MapHubEndpoints();
     app.MapAgentEndpoints();
     app.MapDriverEndpoints();
     app.MapClaimEndpoints();
+    app.MapPaymentEndpoints();
+    app.MapWalletEndpoints();
 
     app.Run();
 }

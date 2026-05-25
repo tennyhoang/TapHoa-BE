@@ -31,6 +31,8 @@ public record OrderResponse(
     List<OrderItemResponse> Items,
     DateTime CreatedAt,
     string? CancelReason,
+    string? PaymentRef,
+    DateTime? PaidAt,
     DateTime? ShippingToHubAt,
     DateTime? InHubAt,
     DateTime? CompletedAt,
