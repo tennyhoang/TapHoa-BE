@@ -40,7 +40,10 @@ public class GetMyOrdersQueryHandler(IRepository<Order> orderRepo)
 
         return Result<PagedResult<OrderResponse>>.Ok(new PagedResult<OrderResponse>
         {
-            Items = items.Select(o => CreateOrder.CreateOrderCommandHandler.MapToResponse(o, o.Hub)).ToList(),
+            Items = items
+                .Where(o => o.Hub is not null)
+                .Select(o => CreateOrder.CreateOrderCommandHandler.MapToResponse(o, o.Hub!))
+                .ToList(),
             TotalCount = totalCount,
             Page = request.Page,
             PageSize = request.PageSize

@@ -9,7 +9,9 @@ namespace TapHoa.Application.Orders.V1.CreateOrder;
 public class CreateOrderCommandHandler(
     IRepository<Order> orderRepo,
     IRepository<CartItem> cartRepo,
-    IRepository<Hub> hubRepo)
+    IRepository<Hub> hubRepo,
+    IRepository<User> userRepo,
+    IRepository<WalletTransaction> walletTransactionRepo)
     : IRequestHandler<CreateOrderCommand, OrderResponse>
 {
     public async Task<OrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -53,22 +55,34 @@ public class CreateOrderCommandHandler(
         }).ToList();
 
         var orderId = Guid.NewGuid();
-        var isCod = string.Equals(request.PaymentMethod, "COD", StringComparison.OrdinalIgnoreCase);
-        var paymentRef = isCod ? null : "TH" + orderId.ToString("N")[..8].ToUpper();
+        var isCod    = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
+        var isWallet = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
+        var paymentRef = (isCod || isWallet) ? null : "TH" + orderId.ToString("N")[..8].ToUpper();
+
+        var totalAmount = orderItems.Sum(i => i.UnitPrice * i.Quantity);
+
+        // Wallet: kiểm tra và trừ số dư trước khi tạo đơn
+        User? buyer = null;
+        if (isWallet)
+        {
+            buyer = await userRepo.GetByIdAsync(request.UserId)
+                ?? throw new KeyNotFoundException("Người dùng không tồn tại.");
+            buyer.DebitWallet(totalAmount); // throws OrderDomainException if insufficient
+        }
 
         var order = new Order
         {
             Id          = orderId,
             UserId      = request.UserId,
             HubId       = request.HubId,
-            TotalAmount = orderItems.Sum(i => i.UnitPrice * i.Quantity),
+            TotalAmount = totalAmount,
             Note        = request.Note,
             Items       = orderItems,
             PaymentRef  = paymentRef,
         };
 
-        // COD: khách trả tiền mặt khi lấy hàng → bỏ qua bước chờ thanh toán
-        if (isCod) order.ConfirmPayment(); // PendingPayment → Paid_WaitingForBatch
+        // COD / Wallet: bỏ qua bước chờ thanh toán
+        if (isCod || isWallet) order.ConfirmPayment(); // PendingPayment → Paid_WaitingForBatch
 
         await orderRepo.AddAsync(order);
 
@@ -76,6 +90,20 @@ public class CreateOrderCommandHandler(
             cartRepo.Remove(item);
 
         await orderRepo.SaveChangesAsync();
+
+        if (isWallet && buyer is not null)
+        {
+            var shortRef = orderId.ToString()[..8].ToUpper();
+            await walletTransactionRepo.AddAsync(new WalletTransaction
+            {
+                UserId      = buyer.Id,
+                Amount      = totalAmount,
+                Type        = WalletTransactionType.Debit,
+                Description = $"Thanh toán đơn hàng #{shortRef}",
+                OrderId     = orderId,
+            });
+            await walletTransactionRepo.SaveChangesAsync();
+        }
 
         return MapToResponse(order, hub, cartItems);
     }

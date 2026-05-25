@@ -4,6 +4,7 @@ using TapHoa.Application.Driver.V1;
 
 namespace TapHoa.Api.Endpoints.V1.Driver;
 
+
 public static class DriverEndpoints
 {
     public static void MapDriverEndpoints(this IEndpointRouteBuilder app)
@@ -40,10 +41,28 @@ public static class DriverEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
 
-        // GET /api/v1/driver/orders  (giữ nguyên — nhóm tất cả hub, dành cho admin/tổng quan)
+        // GET /api/v1/driver/orders  — đơn Paid_WaitingForBatch gom theo hub
         group.MapGet("/orders", async (IMediator mediator) =>
         {
             var result = await mediator.Send(new GetDriverOrdersQuery());
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { result.Error, result.ErrorCode });
+        });
+
+        // GET /api/v1/driver/orders/shipping — đơn đang vận chuyển (ShippingToHub)
+        group.MapGet("/orders/shipping", async (IMediator mediator, int page = 1, int pageSize = 50) =>
+        {
+            var result = await mediator.Send(new GetDriverShippingOrdersQuery(page, pageSize));
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { result.Error, result.ErrorCode });
+        });
+
+        // GET /api/v1/driver/orders/delivered — đơn đã giao đến hub hôm nay
+        group.MapGet("/orders/delivered", async (IMediator mediator, int page = 1, int pageSize = 30) =>
+        {
+            var result = await mediator.Send(new GetDriverDeliveredOrdersQuery(page, pageSize));
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
