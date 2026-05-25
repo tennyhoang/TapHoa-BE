@@ -6,5 +6,6 @@ public record CreateOrderCommand(
     Guid UserId,
     Guid HubId,
     string? Note,
-    string PaymentMethod = "BankTransfer"
+    string PaymentMethod = "BankTransfer",
+    bool UseWallet = false
 ) : IRequest<OrderResponse>;

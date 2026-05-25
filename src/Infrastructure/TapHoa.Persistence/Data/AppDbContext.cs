@@ -51,6 +51,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Order>(e =>
         {
             e.Property(o => o.TotalAmount).HasColumnType("decimal(18,2)");
+            e.Property(o => o.WalletAmountUsed).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             e.Property(o => o.Status).HasConversion<string>();
             e.Property(o => o.CancelReason).HasMaxLength(500);
         });
