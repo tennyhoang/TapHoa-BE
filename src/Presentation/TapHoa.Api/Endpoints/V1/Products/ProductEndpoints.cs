@@ -1,9 +1,12 @@
 using MediatR;
+using TapHoa.Application.Contracts;
 using TapHoa.Application.Products.V1.CreateProduct;
 using TapHoa.Application.Products.V1.DeleteProduct;
 using TapHoa.Application.Products.V1.GetProductById;
 using TapHoa.Application.Products.V1.GetProducts;
 using TapHoa.Application.Products.V1.UpdateProduct;
+using TapHoa.Domain.Entities;
+using TapHoa.Domain.Repositories;
 
 namespace TapHoa.Api.Endpoints.V1.Products;
 
@@ -41,5 +44,37 @@ public static class ProductEndpoints
             await mediator.Send(new DeleteProductCommand(id));
             return Results.NoContent();
         }).RequireAuthorization("Admin");
+
+        // POST /api/v1/products/upload-image
+        // Admin upload ảnh lên Cloudinary, gán URL vào product
+        group.MapPost("/{id:guid}/upload-image", async (
+            Guid id,
+            IFormFile file,
+            ICloudinaryService cloudinary,
+            IRepository<Product> productRepo) =>
+        {
+            var product = await productRepo.GetByIdAsync(id);
+
+            if (product is null)
+                return Results.NotFound(new { Error = "Không tìm thấy sản phẩm." });
+
+            string url;
+            try
+            {
+                await using var stream = file.OpenReadStream();
+                url = await cloudinary.UploadImageAsync(stream, file.FileName, "taphoa_products");
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { Error = ex.Message });
+            }
+
+            product.ThumbnailUrl = url;
+            await productRepo.SaveChangesAsync();
+
+            return Results.Ok(new { ThumbnailUrl = url });
+        })
+        .RequireAuthorization("Admin")
+        .DisableAntiforgery();
     }
 }

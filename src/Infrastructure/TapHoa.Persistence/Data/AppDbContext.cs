@@ -19,6 +19,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<HubInventory> HubInventories => Set<HubInventory>();
     public DbSet<OrderClaim> OrderClaims => Set<OrderClaim>();
     public DbSet<OrderDamagedReport> OrderDamagedReports => Set<OrderDamagedReport>();
+    public DbSet<Article> Articles => Set<Article>();
+    public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
+    public DbSet<WalletTopupRequest> WalletTopupRequests => Set<WalletTopupRequest>();
+    public DbSet<WithdrawRequest> WithdrawRequests => Set<WithdrawRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -132,6 +136,65 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .OnDelete(DeleteBehavior.Cascade);
 
             e.Property(hi => hi.Stock).HasDefaultValue(0);
+        });
+
+        modelBuilder.Entity<Article>(e =>
+        {
+            e.Property(a => a.Title).HasMaxLength(200).IsRequired();
+            e.Property(a => a.Excerpt).HasMaxLength(500).IsRequired();
+            e.Property(a => a.Category).HasMaxLength(100).IsRequired();
+            e.Property(a => a.ImageUrl).HasMaxLength(2048);
+        });
+
+        modelBuilder.Entity<User>(e =>
+            e.Property(u => u.WalletBalance)
+             .HasColumnType("decimal(18,2)")
+             .HasDefaultValue(0m));
+
+        modelBuilder.Entity<WalletTransaction>(e =>
+        {
+            e.Property(t => t.Amount).HasColumnType("decimal(18,2)");
+            e.Property(t => t.Type).HasConversion<string>();
+            e.Property(t => t.Description).HasMaxLength(500).IsRequired();
+
+            e.HasOne(t => t.User)
+             .WithMany(u => u.WalletTransactions)
+             .HasForeignKey(t => t.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(t => t.Order)
+             .WithMany()
+             .HasForeignKey(t => t.OrderId)
+             .OnDelete(DeleteBehavior.SetNull)
+             .IsRequired(false);
+        });
+
+        modelBuilder.Entity<WalletTopupRequest>(e =>
+        {
+            e.Property(t => t.Amount).HasColumnType("decimal(18,2)");
+            e.Property(t => t.PaymentRef).HasMaxLength(50).IsRequired();
+            e.Property(t => t.Status).HasConversion<string>();
+            e.HasIndex(t => t.PaymentRef).IsUnique();
+
+            e.HasOne(t => t.User)
+             .WithMany()
+             .HasForeignKey(t => t.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WithdrawRequest>(e =>
+        {
+            e.Property(w => w.Amount).HasColumnType("decimal(18,2)");
+            e.Property(w => w.BankName).HasMaxLength(100).IsRequired();
+            e.Property(w => w.AccountNumber).HasMaxLength(30).IsRequired();
+            e.Property(w => w.HolderName).HasMaxLength(200).IsRequired();
+            e.Property(w => w.Status).HasConversion<string>();
+            e.Property(w => w.AdminNote).HasMaxLength(500);
+
+            e.HasOne(w => w.User)
+             .WithMany()
+             .HasForeignKey(w => w.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<OrderDamagedReport>(e =>

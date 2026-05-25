@@ -27,7 +27,7 @@ public class GetProductsQueryHandler(
 
         // ── Base query ─────────────────────────────────────────────────────────
         var query = productRepo.Query()
-            .Include(p => p.Category)
+            .Include(p => p.Category).ThenInclude(c => c.Parent)
             .Include(p => p.Images)
             .Include(p => p.Reviews)
             .Where(p => p.IsActive);
@@ -42,7 +42,13 @@ public class GetProductsQueryHandler(
 
         // ── Filters ────────────────────────────────────────────────────────────
         if (!string.IsNullOrWhiteSpace(request.Search))
-            query = query.Where(p => p.Name.ToLower().Contains(request.Search.ToLower()));
+        {
+            var term = request.Search.ToLower();
+            query = query.Where(p =>
+                p.Name.ToLower().Contains(term) ||
+                p.Category.Name.ToLower().Contains(term) ||
+                (p.Category.Parent != null && p.Category.Parent.Name.ToLower().Contains(term)));
+        }
 
         // Match exact category OR any of its direct children (2-level hierarchy).
         if (request.CategoryId.HasValue)
