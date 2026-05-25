@@ -4,6 +4,7 @@ using Microsoft.Extensions.FileProviders;
 using NLog;
 using NLog.Web;
 using Scalar.AspNetCore;
+using TapHoa.Api.BackgroundJobs;
 using TapHoa.Api.Endpoints.V1.Admin;
 using TapHoa.Api.Endpoints.V1.Agent;
 using TapHoa.Api.Endpoints.V1.Addresses;
@@ -47,6 +48,7 @@ try
 
     builder.Services.AddOpenApi();
     builder.Services.AddHttpClient("groq");
+    builder.Services.AddHostedService<NightBatchJob>();
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddPersistence(builder.Configuration);
