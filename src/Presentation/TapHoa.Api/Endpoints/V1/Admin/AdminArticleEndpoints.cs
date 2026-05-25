@@ -17,7 +17,9 @@ public static class AdminArticleEndpoints
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration) =>
         {
-            var apiKey = configuration["Gemini:ApiKey"];
+            var apiKey = configuration["Gemini:ApiKey"]
+                ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+                ?? Environment.GetEnvironmentVariable("Gemini__ApiKey");
             if (string.IsNullOrEmpty(apiKey))
                 return Results.BadRequest(new { error = "GEMINI_API_KEY chưa được cấu hình" });
 
