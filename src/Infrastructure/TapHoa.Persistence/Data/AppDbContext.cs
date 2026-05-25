@@ -20,6 +20,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<OrderClaim> OrderClaims => Set<OrderClaim>();
     public DbSet<OrderDamagedReport> OrderDamagedReports => Set<OrderDamagedReport>();
     public DbSet<Article> Articles => Set<Article>();
+    public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -141,6 +142,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(a => a.Excerpt).HasMaxLength(500).IsRequired();
             e.Property(a => a.Category).HasMaxLength(100).IsRequired();
             e.Property(a => a.ImageUrl).HasMaxLength(2048);
+        });
+
+        modelBuilder.Entity<User>(e =>
+            e.Property(u => u.WalletBalance)
+             .HasColumnType("decimal(18,2)")
+             .HasDefaultValue(0m));
+
+        modelBuilder.Entity<WalletTransaction>(e =>
+        {
+            e.Property(t => t.Amount).HasColumnType("decimal(18,2)");
+            e.Property(t => t.Type).HasConversion<string>();
+            e.Property(t => t.Description).HasMaxLength(500).IsRequired();
+
+            e.HasOne(t => t.User)
+             .WithMany(u => u.WalletTransactions)
+             .HasForeignKey(t => t.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(t => t.Order)
+             .WithMany()
+             .HasForeignKey(t => t.OrderId)
+             .OnDelete(DeleteBehavior.SetNull)
+             .IsRequired(false);
         });
 
         modelBuilder.Entity<OrderDamagedReport>(e =>
