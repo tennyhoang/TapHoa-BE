@@ -35,7 +35,7 @@ public class ConfirmPaymentCommandHandler(
         }
 
         // ── Wallet top-up (ref starts with WLT) ─────────────────────────────
-        if (!content.Contains("WLT"))
+        if (!content.Contains("THWL"))
             return false;
 
         var topup = await topupRepo.Query()

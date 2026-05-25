@@ -10,7 +10,7 @@ public class InitiateWalletTopupCommandHandler(IRepository<WalletTopupRequest> t
     public async Task<InitiateTopupResult> Handle(
         InitiateWalletTopupCommand request, CancellationToken cancellationToken)
     {
-        var paymentRef = "WLT" + Guid.NewGuid().ToString("N")[..8].ToUpper();
+        var paymentRef = "THWL" + Guid.NewGuid().ToString("N")[..7].ToUpper();
 
         await topupRepo.AddAsync(new WalletTopupRequest
         {
