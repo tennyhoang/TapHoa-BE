@@ -50,33 +50,41 @@ public static class AdminArticleEndpoints
                 temperature = 0.7
             });
 
-            var client = httpClientFactory.CreateClient("groq");
-            client.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            try
+            {
+                var client = httpClientFactory.CreateClient("groq");
+                client.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 
-            var httpResponse = await client.PostAsync(
-                "https://api.groq.com/openai/v1/chat/completions",
-                new StringContent(body, Encoding.UTF8, "application/json"));
+                var httpResponse = await client.PostAsync(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    new StringContent(body, Encoding.UTF8, "application/json"));
 
-            if (!httpResponse.IsSuccessStatusCode)
-                return Results.BadRequest(new { error = $"Groq API lỗi: {httpResponse.StatusCode}" });
+                var json = await httpResponse.Content.ReadAsStringAsync();
 
-            var json = await httpResponse.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
+                if (!httpResponse.IsSuccessStatusCode)
+                    return Results.BadRequest(new { error = $"Groq API lỗi: {httpResponse.StatusCode}", detail = json });
 
-            var text = doc.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("message")
-                .GetProperty("content")
-                .GetString() ?? "";
+                using var doc = JsonDocument.Parse(json);
 
-            var jsonStart = text.IndexOf('{');
-            var jsonEnd   = text.LastIndexOf('}');
-            if (jsonStart < 0 || jsonEnd < 0)
-                return Results.BadRequest(new { error = "Groq trả về format không hợp lệ, thử lại" });
+                var text = doc.RootElement
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString() ?? "";
 
-            using var articleDoc = JsonDocument.Parse(text[jsonStart..(jsonEnd + 1)]);
-            return Results.Ok(articleDoc.RootElement.Clone());
+                var jsonStart = text.IndexOf('{');
+                var jsonEnd   = text.LastIndexOf('}');
+                if (jsonStart < 0 || jsonEnd < 0)
+                    return Results.BadRequest(new { error = "Groq trả về format không hợp lệ, thử lại", raw = text });
+
+                using var articleDoc = JsonDocument.Parse(text[jsonStart..(jsonEnd + 1)]);
+                return Results.Ok(articleDoc.RootElement.Clone());
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(ex.Message);
+            }
         });
     }
 }
