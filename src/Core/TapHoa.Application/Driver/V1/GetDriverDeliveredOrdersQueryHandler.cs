@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TapHoa.Application.Common;
 using TapHoa.Application.Orders.V1;
+using TapHoa.Application.Orders.V1.CreateOrder;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Enums;
 using TapHoa.Domain.Repositories;
@@ -32,7 +33,7 @@ public class GetDriverDeliveredOrdersQueryHandler(IRepository<Order> orderRepo)
 
         return Result<PagedResult<OrderResponse>>.Ok(new PagedResult<OrderResponse>
         {
-            Items      = items.Select(o => CreateOrder.CreateOrderCommandHandler.MapToResponse(o, o.Hub)).ToList(),
+            Items      = items.Select(o => CreateOrderCommandHandler.MapToResponse(o, o.Hub)).ToList(),
             TotalCount = total,
             Page       = request.Page,
             PageSize   = request.PageSize,
