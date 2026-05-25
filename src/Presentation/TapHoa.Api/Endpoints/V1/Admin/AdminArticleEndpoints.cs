@@ -105,7 +105,8 @@ public static class AdminArticleEndpoints
             {
                 model = "llama-3.3-70b-versatile",
                 messages = new[] { new { role = "user", content = prompt } },
-                temperature = 0.7
+                temperature = 0.7,
+                response_format = new { type = "json_object" }
             });
 
             try
