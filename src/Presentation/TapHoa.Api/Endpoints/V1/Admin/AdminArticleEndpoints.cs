@@ -17,11 +17,10 @@ public static class AdminArticleEndpoints
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration) =>
         {
-            var apiKey = configuration["Gemini:ApiKey"]
-                ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY")
-                ?? Environment.GetEnvironmentVariable("Gemini__ApiKey");
+            var apiKey = configuration["Groq:ApiKey"]
+                ?? Environment.GetEnvironmentVariable("GROQ_API_KEY");
             if (string.IsNullOrEmpty(apiKey))
-                return Results.BadRequest(new { error = "GEMINI_API_KEY chưa được cấu hình" });
+                return Results.BadRequest(new { error = "GROQ_API_KEY chưa được cấu hình" });
 
             var prompt = $$"""
                 Bạn là chuyên gia dinh dưỡng và thực phẩm Việt Nam. Viết bài blog cho website tạp hóa online TapHoa.
@@ -43,33 +42,38 @@ public static class AdminArticleEndpoints
 
             var body = JsonSerializer.Serialize(new
             {
-                contents = new[] { new { parts = new[] { new { text = prompt } } } }
+                model = "llama-3.3-70b-versatile",
+                messages = new[]
+                {
+                    new { role = "user", content = prompt }
+                },
+                temperature = 0.7
             });
 
-            var client = httpClientFactory.CreateClient("gemini");
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}";
+            var client = httpClientFactory.CreateClient("groq");
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 
             var httpResponse = await client.PostAsync(
-                url,
+                "https://api.groq.com/openai/v1/chat/completions",
                 new StringContent(body, Encoding.UTF8, "application/json"));
 
             if (!httpResponse.IsSuccessStatusCode)
-                return Results.BadRequest(new { error = $"Gemini API lỗi: {httpResponse.StatusCode}" });
+                return Results.BadRequest(new { error = $"Groq API lỗi: {httpResponse.StatusCode}" });
 
             var json = await httpResponse.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
 
             var text = doc.RootElement
-                .GetProperty("candidates")[0]
+                .GetProperty("choices")[0]
+                .GetProperty("message")
                 .GetProperty("content")
-                .GetProperty("parts")[0]
-                .GetProperty("text")
                 .GetString() ?? "";
 
             var jsonStart = text.IndexOf('{');
             var jsonEnd   = text.LastIndexOf('}');
             if (jsonStart < 0 || jsonEnd < 0)
-                return Results.BadRequest(new { error = "Gemini trả về format không hợp lệ, thử lại" });
+                return Results.BadRequest(new { error = "Groq trả về format không hợp lệ, thử lại" });
 
             using var articleDoc = JsonDocument.Parse(text[jsonStart..(jsonEnd + 1)]);
             return Results.Ok(articleDoc.RootElement.Clone());

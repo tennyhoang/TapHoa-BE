@@ -46,7 +46,7 @@ try
     builder.Host.UseNLog();
 
     builder.Services.AddOpenApi();
-    builder.Services.AddHttpClient("gemini");
+    builder.Services.AddHttpClient("groq");
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddPersistence(builder.Configuration);
