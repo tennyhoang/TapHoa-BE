@@ -123,6 +123,7 @@ try
     app.MapUploadEndpoints();
     app.MapAdminRevenueEndpoints();
     app.MapAdminArticleEndpoints();
+    app.MapAdminWalletEndpoints();
     app.MapAdminLogisticsEndpoints();
     app.MapHubEndpoints();
     app.MapAgentEndpoints();

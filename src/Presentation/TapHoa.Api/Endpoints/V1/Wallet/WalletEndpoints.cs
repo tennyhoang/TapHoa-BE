@@ -1,9 +1,9 @@
 using MediatR;
 using System.Security.Claims;
+using TapHoa.Application.Wallet.V1.CreateWithdrawRequest;
 using TapHoa.Application.Wallet.V1.GetWallet;
 using TapHoa.Application.Wallet.V1.GetWalletTransactions;
-using TapHoa.Application.Wallet.V1.TopupWallet;
-using TapHoa.Application.Wallet.V1.WithdrawWallet;
+using TapHoa.Application.Wallet.V1.InitiateTopup;
 
 namespace TapHoa.Api.Endpoints.V1.Wallet;
 
@@ -33,7 +33,8 @@ public static class WalletEndpoints
             return Results.Ok(result);
         });
 
-        group.MapPost("/me/topup", async (
+        // Initiate QR-based top-up — returns paymentRef for VietQR display
+        group.MapPost("/me/topup/initiate", async (
             ClaimsPrincipal principal,
             IMediator mediator,
             WalletAmountRequest body) =>
@@ -44,21 +45,29 @@ public static class WalletEndpoints
                 return Results.BadRequest(new { message = "Số tiền nạp tối đa là 50.000.000đ." });
 
             var userId = GetUserId(principal);
-            var result = await mediator.Send(new TopupWalletCommand(userId, body.Amount));
+            var result = await mediator.Send(new InitiateWalletTopupCommand(userId, body.Amount));
             return Results.Ok(result);
         });
 
-        group.MapPost("/me/withdraw", async (
+        // Submit withdraw request with bank info
+        group.MapPost("/me/withdraw-request", async (
             ClaimsPrincipal principal,
             IMediator mediator,
-            WalletAmountRequest body) =>
+            WithdrawRequestBody body) =>
         {
             if (body.Amount <= 0)
                 return Results.BadRequest(new { message = "Số tiền phải lớn hơn 0." });
+            if (string.IsNullOrWhiteSpace(body.BankName))
+                return Results.BadRequest(new { message = "Vui lòng chọn ngân hàng." });
+            if (string.IsNullOrWhiteSpace(body.AccountNumber))
+                return Results.BadRequest(new { message = "Vui lòng nhập số tài khoản." });
+            if (string.IsNullOrWhiteSpace(body.HolderName))
+                return Results.BadRequest(new { message = "Vui lòng nhập tên chủ tài khoản." });
 
             var userId = GetUserId(principal);
-            var result = await mediator.Send(new WithdrawWalletCommand(userId, body.Amount));
-            return Results.Ok(result);
+            var id = await mediator.Send(new CreateWithdrawRequestCommand(
+                userId, body.Amount, body.BankName, body.AccountNumber, body.HolderName));
+            return Results.Ok(new { id });
         });
     }
 
@@ -69,3 +78,4 @@ public static class WalletEndpoints
 }
 
 public record WalletAmountRequest(decimal Amount);
+public record WithdrawRequestBody(decimal Amount, string BankName, string AccountNumber, string HolderName);
