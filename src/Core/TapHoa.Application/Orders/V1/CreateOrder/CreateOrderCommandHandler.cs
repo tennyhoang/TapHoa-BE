@@ -68,6 +68,7 @@ public class CreateOrderCommandHandler(
             buyer = await userRepo.GetByIdAsync(request.UserId)
                 ?? throw new KeyNotFoundException("Người dùng không tồn tại.");
             buyer.DebitWallet(totalAmount); // throws OrderDomainException if insufficient
+            userRepo.Update(buyer);         // mark modified so EF Core saves the balance change
         }
 
         var order = new Order
