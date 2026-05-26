@@ -66,7 +66,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .OnDelete(DeleteBehavior.Restrict));
 
         modelBuilder.Entity<Review>(e =>
-            e.HasIndex(r => new { r.UserId, r.ProductId }).IsUnique());
+        {
+            e.HasIndex(r => new { r.UserId, r.ProductId }).IsUnique();
+            e.Property(r => r.IsApproved).HasDefaultValue(true);
+            e.Property(r => r.Sentiment).HasMaxLength(20).HasDefaultValue("Neutral");
+        });
 
         modelBuilder.Entity<Hub>(e =>
         {
