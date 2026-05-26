@@ -52,6 +52,16 @@ try
     builder.Services.AddOpenApi();
     builder.Services.AddHttpClient("groq");
     builder.Services.AddHttpClient("pollinations", c => c.Timeout = TimeSpan.FromSeconds(120));
+    builder.Services.AddHttpClient("nominatim", c =>
+    {
+        // Nominatim ToS: User-Agent bắt buộc
+        c.DefaultRequestHeaders.UserAgent.ParseAdd("TapHoa/1.0 (ttuan0147@gmail.com)");
+        c.Timeout = TimeSpan.FromSeconds(10);
+    });
+    builder.Services.AddHttpClient("ors", c =>
+    {
+        c.Timeout = TimeSpan.FromSeconds(30);
+    });
     builder.Services.AddHostedService<NightBatchJob>();
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);

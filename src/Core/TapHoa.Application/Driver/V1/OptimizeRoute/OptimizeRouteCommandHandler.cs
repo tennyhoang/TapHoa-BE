@@ -1,0 +1,78 @@
+using MediatR;
+using TapHoa.Application.Common;
+using TapHoa.Application.Contracts;
+
+namespace TapHoa.Application.Driver.V1.OptimizeRoute;
+
+public class OptimizeRouteCommandHandler(IRouteOptimizationService routeService)
+    : IRequestHandler<OptimizeRouteCommand, Result<OptimizeRouteResponse>>
+{
+    public async Task<Result<OptimizeRouteResponse>> Handle(
+        OptimizeRouteCommand request, CancellationToken cancellationToken)
+    {
+        if (request.OrderAddresses.Count == 0)
+            return Result<OptimizeRouteResponse>.Fail("Danh sách đơn hàng rỗng.", "EMPTY_ADDRESSES");
+
+        try
+        {
+            // ── Step 1: Geocode hub ───────────────────────────────────────
+            var hubCoords = await routeService.GeocodeAsync(request.HubAddress, cancellationToken);
+            if (hubCoords is null)
+                return Fallback(request.OrderAddresses);
+
+            // ── Step 2: Geocode tất cả đơn song song ─────────────────────
+            var geocodeTasks = request.OrderAddresses
+                .Select(addr => routeService.GeocodeAsync(addr, cancellationToken));
+
+            var geocodeResults = await Task.WhenAll(geocodeTasks);
+
+            // Chỉ giữ lại đơn geocode thành công, kèm index gốc
+            var validJobs = geocodeResults
+                .Select((coords, i) => (coords, i))
+                .Where(x => x.coords is not null)
+                .ToList();
+
+            if (validJobs.Count == 0)
+                return Fallback(request.OrderAddresses);
+
+            // ── Step 3: Gọi ORS Optimization ─────────────────────────────
+            var jobCoords    = validJobs.Select(j => j.coords!).ToList();
+            var optimizedIds = await routeService.OptimizeAsync(hubCoords, jobCoords, cancellationToken);
+
+            // ── Step 4: Map kết quả về RouteStop theo thứ tự tối ưu ──────
+            var stops = optimizedIds
+                .Select((jobId, stopIdx) =>
+                {
+                    var originalIndex = validJobs[jobId].i;
+                    return new RouteStop(
+                        StopNumber:    stopIdx + 1,
+                        OriginalIndex: originalIndex,
+                        Address:       request.OrderAddresses[originalIndex]);
+                })
+                .ToList();
+
+            // Các đơn không geocode được → thêm cuối danh sách
+            var optimizedSet = stops.Select(s => s.OriginalIndex).ToHashSet();
+            var unresolved   = request.OrderAddresses
+                .Select((addr, i) => (addr, i))
+                .Where(x => !optimizedSet.Contains(x.i))
+                .Select((x, idx) => new RouteStop(stops.Count + idx + 1, x.i, x.addr));
+
+            stops.AddRange(unresolved);
+
+            return Result<OptimizeRouteResponse>.Ok(new OptimizeRouteResponse(stops, IsOptimized: true));
+        }
+        catch
+        {
+            // Nếu bất kỳ bước nào lỗi → trả thứ tự gốc, không để Driver Portal sập
+            return Fallback(request.OrderAddresses);
+        }
+    }
+
+    private static Result<OptimizeRouteResponse> Fallback(List<string> addresses) =>
+        Result<OptimizeRouteResponse>.Ok(new OptimizeRouteResponse(
+            Stops: addresses
+                .Select((addr, i) => new RouteStop(i + 1, i, addr))
+                .ToList(),
+            IsOptimized: false));
+}
