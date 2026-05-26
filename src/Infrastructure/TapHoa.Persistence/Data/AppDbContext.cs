@@ -25,6 +25,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WithdrawRequest> WithdrawRequests => Set<WithdrawRequest>();
     public DbSet<FlashSaleSession> FlashSaleSessions => Set<FlashSaleSession>();
     public DbSet<FlashSaleItem> FlashSaleItems => Set<FlashSaleItem>();
+    public DbSet<Warehouse> Warehouses => Set<Warehouse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -223,6 +224,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .WithMany()
              .HasForeignKey(i => i.ProductId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Warehouse>(e =>
+        {
+            e.Property(w => w.Name).HasMaxLength(200).IsRequired();
+            e.Property(w => w.Address).HasMaxLength(500).IsRequired();
+            e.Property(w => w.Ward).HasMaxLength(100).IsRequired();
+            e.Property(w => w.District).HasMaxLength(100).IsRequired();
+            e.Property(w => w.Province).HasMaxLength(100).IsRequired();
+            e.Property(w => w.PhoneNumber).HasMaxLength(20);
+            e.Property(w => w.IsActive).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<OrderDamagedReport>(e =>

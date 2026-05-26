@@ -9,6 +9,7 @@ using TapHoa.Infrastructure.Auth;
 using TapHoa.Infrastructure.Cloudinary;
 using TapHoa.Infrastructure.Moderation;
 using TapHoa.Infrastructure.Payment;
+using TapHoa.Infrastructure.RouteOptimization;
 
 namespace TapHoa.Infrastructure;
 
@@ -25,6 +26,7 @@ public static class InfrastructureExtension
 
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IReviewModerationService, GroqModerationService>();
+        services.AddScoped<IRouteOptimizationService, OpenRouteOptimizationService>();
 
         // Cloudinary — đọc từ appsettings hoặc env vars (Cloudinary__CloudName, ...)
         services.Configure<CloudinarySettings>(configuration.GetSection("Cloudinary"));
