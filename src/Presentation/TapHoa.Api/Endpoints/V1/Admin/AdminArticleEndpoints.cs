@@ -166,7 +166,7 @@ public static class AdminArticleEndpoints
                             .GetProperty("content")
                             .GetString()?.Trim() ?? "";
 
-                        // ── Step 3: build Pollinations.ai URL & upload to Cloudinary ──
+                        // ── Step 3: generate via Pollinations.ai, upload stream to Cloudinary ──
                         if (!string.IsNullOrWhiteSpace(imagePrompt))
                         {
                             var seed          = Math.Abs(imagePrompt.GetHashCode() % 1_000_000);
@@ -175,7 +175,17 @@ public static class AdminArticleEndpoints
                                 $"https://image.pollinations.ai/prompt/{encodedPrompt}" +
                                 $"?width=1200&height=630&model=flux-realism&seed={seed}&nologo=true";
 
-                            imageUrl = await cloudinaryService.UploadImageFromUrlAsync(pollinationsUrl);
+                            // Fetch with long timeout — Pollinations needs 30–60 s to generate
+                            var pollinationsClient = httpClientFactory.CreateClient("pollinations");
+                            using var imageResponse = await pollinationsClient.GetAsync(
+                                pollinationsUrl, HttpCompletionOption.ResponseHeadersRead);
+
+                            if (imageResponse.IsSuccessStatusCode)
+                            {
+                                await using var imageStream = await imageResponse.Content.ReadAsStreamAsync();
+                                imageUrl = await cloudinaryService.UploadImageAsync(
+                                    imageStream, "article.jpg", "taphoa_articles");
+                            }
                         }
                     }
                 }

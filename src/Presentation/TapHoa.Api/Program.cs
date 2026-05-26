@@ -51,6 +51,7 @@ try
 
     builder.Services.AddOpenApi();
     builder.Services.AddHttpClient("groq");
+    builder.Services.AddHttpClient("pollinations", c => c.Timeout = TimeSpan.FromSeconds(120));
     builder.Services.AddHostedService<NightBatchJob>();
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);

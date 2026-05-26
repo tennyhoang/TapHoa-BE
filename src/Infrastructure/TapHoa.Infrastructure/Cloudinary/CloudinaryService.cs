@@ -22,10 +22,14 @@ public sealed class CloudinaryService : ICloudinaryService
     public async Task<string> UploadImageAsync(
         Stream fileStream, string fileName, string folderName = "taphoa_products")
     {
-        if (fileStream is null || fileStream.Length == 0)
+        if (fileStream is null)
             throw new ArgumentException("File trống.");
 
-        if (fileStream.Length > MaxFileSize)
+        // Skip size check for non-seekable streams (e.g. HTTP response streams)
+        if (fileStream.CanSeek && fileStream.Length == 0)
+            throw new ArgumentException("File trống.");
+
+        if (fileStream.CanSeek && fileStream.Length > MaxFileSize)
             throw new ArgumentException("File quá lớn. Tối đa 5MB.");
 
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
