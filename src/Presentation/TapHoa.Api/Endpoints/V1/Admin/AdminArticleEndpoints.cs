@@ -13,12 +13,16 @@ public static class AdminArticleEndpoints
     private const string ImageSystemPrompt =
         """
         You are an expert at writing image prompts for AI image generators.
-        Given a Vietnamese food/grocery blog article title and excerpt, write a photorealistic image prompt in English for Flux AI.
+        Given a Vietnamese food/grocery blog article title, excerpt, and category, write a photorealistic image prompt in English for Flux AI.
 
-        Rules:
-        - Always include: professional food photography, natural lighting, vibrant colors, high resolution, clean background
-        - If the topic involves comparing quality, choosing freshness, or evaluating products: use a "split image, two panels side by side" composition showing the contrast (e.g., fresh vs stale, good vs bad, organic vs conventional)
-        - If the topic is about a specific food item: show that food beautifully plated or displayed at a market
+        Category rules (follow strictly):
+        - "san-pham-noi-bat" (featured product): show the product PACKAGING/BAG/BOX as the hero shot — clean studio background, soft shadow, product label clearly visible, commercial product photography style
+        - "dinh-duong" (nutrition): ingredients or fresh food beautifully arranged, food styling, natural light
+        - "mua-sam-thong-minh" (smart shopping): if comparing quality/freshness use "split image, two panels side by side"; otherwise a market/grocery scene
+        - "he-thong-hub" (hub system): modern logistics, delivery, or store scene
+
+        General rules:
+        - Always include: professional photography, natural lighting, vibrant colors, high resolution
         - Maximum 70 words
         - Return ONLY the prompt text, nothing else, no explanation
         """;
@@ -147,7 +151,7 @@ public static class AdminArticleEndpoints
                         messages    = new[]
                         {
                             new { role = "system", content = ImageSystemPrompt },
-                            new { role = "user",   content = $"Title: {title}\nExcerpt: {excerpt}" },
+                            new { role = "user",   content = $"Category: {request.Category}\nTitle: {title}\nExcerpt: {excerpt}" },
                         },
                         temperature = 0.8,
                         max_tokens  = 150,
