@@ -43,24 +43,27 @@ public class OptimizeRouteCommandHandler(IRouteOptimizationService routeService)
             var stops = optimizedIds
                 .Select((jobId, stopIdx) =>
                 {
-                    var originalIndex = validJobs[jobId].i;
+                    var (coords, originalIndex) = validJobs[jobId];
                     return new RouteStop(
                         StopNumber:    stopIdx + 1,
                         OriginalIndex: originalIndex,
-                        Address:       request.OrderAddresses[originalIndex]);
+                        Address:       request.OrderAddresses[originalIndex],
+                        Lng:           coords![0],
+                        Lat:           coords![1]);
                 })
                 .ToList();
 
-            // Các đơn không geocode được → thêm cuối danh sách
+            // Các đơn không geocode được → thêm cuối danh sách (không có tọa độ)
             var optimizedSet = stops.Select(s => s.OriginalIndex).ToHashSet();
             var unresolved   = request.OrderAddresses
                 .Select((addr, i) => (addr, i))
                 .Where(x => !optimizedSet.Contains(x.i))
-                .Select((x, idx) => new RouteStop(stops.Count + idx + 1, x.i, x.addr));
+                .Select((x, idx) => new RouteStop(stops.Count + idx + 1, x.i, x.addr, null, null));
 
             stops.AddRange(unresolved);
 
-            return Result<OptimizeRouteResponse>.Ok(new OptimizeRouteResponse(stops, IsOptimized: true));
+            return Result<OptimizeRouteResponse>.Ok(new OptimizeRouteResponse(
+                stops, IsOptimized: true, HubLng: hubCoords[0], HubLat: hubCoords[1]));
         }
         catch
         {
@@ -72,7 +75,9 @@ public class OptimizeRouteCommandHandler(IRouteOptimizationService routeService)
     private static Result<OptimizeRouteResponse> Fallback(List<string> addresses) =>
         Result<OptimizeRouteResponse>.Ok(new OptimizeRouteResponse(
             Stops: addresses
-                .Select((addr, i) => new RouteStop(i + 1, i, addr))
+                .Select((addr, i) => new RouteStop(i + 1, i, addr, null, null))
                 .ToList(),
-            IsOptimized: false));
+            IsOptimized: false,
+            HubLng: null,
+            HubLat: null));
 }
