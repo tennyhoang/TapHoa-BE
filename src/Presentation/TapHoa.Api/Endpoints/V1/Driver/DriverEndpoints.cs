@@ -72,14 +72,17 @@ public static class DriverEndpoints
 
         // POST /api/v1/driver/optimize-route
         // Tối ưu lộ trình giao hàng qua OpenRouteService.
-        // Input: hubAddress + danh sách địa chỉ đơn hàng.
+        // Kho xuất phát được lấy tự động từ WarehouseId trên tài khoản Driver đang đăng nhập.
+        // Input: danh sách địa chỉ Hub cần ghé.
         // Output: danh sách điểm ghé theo thứ tự tối ưu (fallback = thứ tự gốc nếu ORS lỗi).
         group.MapPost("/optimize-route", async (
             [FromBody] OptimizeRouteRequest body,
+            ClaimsPrincipal user,
             IMediator mediator) =>
         {
+            var driverId = GetUserId(user);
             var result = await mediator.Send(
-                new OptimizeRouteCommand(body.HubAddress, body.OrderAddresses));
+                new OptimizeRouteCommand(driverId, body.OrderAddresses));
 
             return result.IsSuccess
                 ? Results.Ok(result.Value)
@@ -118,4 +121,4 @@ public static class DriverEndpoints
 
 public record PickupRequest(List<Guid> OrderIds);
 public record DispatchRequest(List<Guid> OrderIds);
-public record OptimizeRouteRequest(string HubAddress, List<string> OrderAddresses);
+public record OptimizeRouteRequest(List<string> OrderAddresses);

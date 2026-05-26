@@ -1,10 +1,15 @@
 using MediatR;
 using TapHoa.Application.Common;
 using TapHoa.Application.Contracts;
+using TapHoa.Domain.Entities;
+using TapHoa.Domain.Repositories;
 
 namespace TapHoa.Application.Driver.V1.OptimizeRoute;
 
-public class OptimizeRouteCommandHandler(IRouteOptimizationService routeService)
+public class OptimizeRouteCommandHandler(
+    IRouteOptimizationService routeService,
+    IRepository<User>         userRepo,
+    IRepository<Warehouse>    warehouseRepo)
     : IRequestHandler<OptimizeRouteCommand, Result<OptimizeRouteResponse>>
 {
     public async Task<Result<OptimizeRouteResponse>> Handle(
@@ -13,10 +18,30 @@ public class OptimizeRouteCommandHandler(IRouteOptimizationService routeService)
         if (request.OrderAddresses.Count == 0)
             return Result<OptimizeRouteResponse>.Fail("Danh sách đơn hàng rỗng.", "EMPTY_ADDRESSES");
 
+        // ── Resolve kho xuất phát từ tài khoản Driver ────────────────────
+        var driver = await userRepo.GetByIdAsync(request.DriverId);
+        if (driver is null)
+            return Result<OptimizeRouteResponse>.Fail(
+                "Không tìm thấy tài khoản tài xế.", "DRIVER_NOT_FOUND");
+
+        if (driver.WarehouseId is null)
+            return Result<OptimizeRouteResponse>.Fail(
+                "Tài xế chưa được gán kho xuất phát. Liên hệ Admin để được gán kho.",
+                "DRIVER_NO_WAREHOUSE");
+
+        var warehouse = await warehouseRepo.GetByIdAsync(driver.WarehouseId.Value);
+        if (warehouse is null || !warehouse.IsActive)
+            return Result<OptimizeRouteResponse>.Fail(
+                "Kho xuất phát không tồn tại hoặc đã bị vô hiệu hoá.",
+                "WAREHOUSE_UNAVAILABLE");
+
+        var warehouseAddress =
+            $"{warehouse.Address}, {warehouse.Ward}, {warehouse.District}, {warehouse.Province}";
+
         try
         {
-            // ── Step 1: Geocode hub ───────────────────────────────────────
-            var hubCoords = await routeService.GeocodeAsync(request.HubAddress, cancellationToken);
+            // ── Step 1: Geocode kho ───────────────────────────────────────
+            var hubCoords = await routeService.GeocodeAsync(warehouseAddress, cancellationToken);
             if (hubCoords is null)
                 return Fallback(request.OrderAddresses);
 
@@ -55,7 +80,7 @@ public class OptimizeRouteCommandHandler(IRouteOptimizationService routeService)
 
             // Các đơn không geocode được → thêm cuối danh sách (không có tọa độ)
             var optimizedSet = stops.Select(s => s.OriginalIndex).ToHashSet();
-            var unresolved   = request.OrderAddresses
+            var unresolved = request.OrderAddresses
                 .Select((addr, i) => (addr, i))
                 .Where(x => !optimizedSet.Contains(x.i))
                 .Select((x, idx) => new RouteStop(stops.Count + idx + 1, x.i, x.addr, null, null));
@@ -78,6 +103,6 @@ public class OptimizeRouteCommandHandler(IRouteOptimizationService routeService)
                 .Select((addr, i) => new RouteStop(i + 1, i, addr, null, null))
                 .ToList(),
             IsOptimized: false,
-            HubLng: null,
-            HubLat: null));
+            HubLng:      null,
+            HubLat:      null));
 }
