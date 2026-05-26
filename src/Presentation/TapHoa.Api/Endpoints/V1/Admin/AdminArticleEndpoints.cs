@@ -80,18 +80,26 @@ public static class AdminArticleEndpoints
                 return Results.BadRequest(new { error = "GROQ_API_KEY chưa được cấu hình" });
 
             var articlePrompt = $$"""
-                Bạn là chuyên gia dinh dưỡng và thực phẩm Việt Nam. Viết bài blog cho website tạp hóa online TapHoa.
+                Bạn là biên tập viên cẩm nang thực phẩm cho website tạp hóa online TapHoa — giọng văn như người bạn am hiểu chia sẻ kinh nghiệm thực tế, không phải giáo sư giảng bài.
 
                 Chủ đề: "{{request.Topic}}"
                 Danh mục: {{request.Category}}
 
-                Yêu cầu:
-                - Tiêu đề hấp dẫn, ngắn gọn (dưới 70 ký tự)
-                - Mô tả ngắn 1-2 câu (dưới 150 ký tự)
-                - Nội dung 400-600 từ, chia 3-4 đoạn với heading markdown (##)
-                - Thông tin chính xác, paraphrase từ WHO/FAO/Bộ Y tế Việt Nam, không copy nguyên văn
-                - Văn phong gần gũi, thực tế cho người nội trợ Việt Nam
-                - Kết thúc bằng 3-5 gợi ý thực tế
+                Yêu cầu bắt buộc về NỘI DUNG:
+                - Tiêu đề hấp dẫn, cụ thể, ngắn gọn (dưới 70 ký tự) — không dùng từ chung chung như "Hướng dẫn", "Giới thiệu"
+                - Excerpt 1-2 câu móc nối cảm xúc hoặc nêu vấn đề cụ thể (dưới 150 ký tự)
+                - Nội dung 450-600 từ với đúng cấu trúc sau:
+                  • Đoạn mở đầu KHÔNG có heading: 2-3 câu hook gây tò mò hoặc nêu điều ít biết về chủ đề
+                  • 3-4 section với ## heading ngắn gọn, súc tích (VD: "## Chọn đúng — tránh hàng giả", "## Bảo quản đúng cách")
+                  • Mỗi section dùng **in đậm** cho từ khóa quan trọng, *in nghiêng* cho tên chuyên môn hoặc lưu ý
+                  • Ít nhất 2 section có bullet list (- item) với thông tin cụ thể, không chung chung
+                  • Section cuối là gợi ý thực tế cho bếp gia đình (3-5 gợi ý dạng bullet)
+
+                Yêu cầu về PHONG CÁCH:
+                - Xưng "bạn", giọng thân mật như người bạn mách nước, không phải hướng dẫn khô khan
+                - Dùng số liệu cụ thể khi có thể (VD: "chứa 3.5mg sắt/100g", "bảo quản được 2-3 tháng")
+                - Thông tin chính xác, paraphrase từ Viện Dinh dưỡng Quốc gia / WHO / Bộ Y tế VN
+                - KHÔNG dùng các mẫu câu sáo rỗng như: "không chỉ... mà còn", "hãy cùng khám phá", "hy vọng bài viết"
 
                 Trả về JSON theo đúng format này, không kèm markdown code block:
                 {"title": "...", "excerpt": "...", "content": "..."}
