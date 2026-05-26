@@ -7,6 +7,7 @@ using Scalar.AspNetCore;
 using TapHoa.Api.BackgroundJobs;
 using TapHoa.Api.Endpoints.V1.Admin;
 using TapHoa.Api.Endpoints.V1.Wallet;
+using TapHoa.Api.Endpoints.V1.Warehouses;
 using TapHoa.Api.Endpoints.V1.Agent;
 using TapHoa.Api.Endpoints.V1.Addresses;
 using TapHoa.Api.Endpoints.V1.Claims;
@@ -147,6 +148,8 @@ try
     app.MapClaimEndpoints();
     app.MapPaymentEndpoints();
     app.MapWalletEndpoints();
+    app.MapWarehouseEndpoints();
+    app.MapAdminWarehouseEndpoints();
 
     app.Run();
 }
