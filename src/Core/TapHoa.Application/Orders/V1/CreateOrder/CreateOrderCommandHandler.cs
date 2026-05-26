@@ -54,36 +54,48 @@ public class CreateOrderCommandHandler(
             UnitPrice = c.Product.DiscountPrice ?? c.Product.Price
         }).ToList();
 
-        var orderId = Guid.NewGuid();
-        var isCod    = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
-        var isWallet = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
-        var paymentRef = (isCod || isWallet) ? null : "TH" + orderId.ToString("N")[..8].ToUpper();
+        var orderId      = Guid.NewGuid();
+        var totalAmount  = orderItems.Sum(i => i.UnitPrice * i.Quantity);
+        var isCod        = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
+        var isWallet     = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
 
-        var totalAmount = orderItems.Sum(i => i.UnitPrice * i.Quantity);
-
-        // Wallet: kiểm tra và trừ số dư trước khi tạo đơn
+        // ── Wallet deduction (full or partial) ─────────────────────────────────
         User? buyer = null;
-        if (isWallet)
+        decimal walletAmountUsed = 0;
+
+        if (isWallet || request.UseWallet)
         {
             buyer = await userRepo.GetByIdAsync(request.UserId)
                 ?? throw new KeyNotFoundException("Người dùng không tồn tại.");
-            buyer.DebitWallet(totalAmount); // throws OrderDomainException if insufficient
-            userRepo.Update(buyer);         // mark modified so EF Core saves the balance change
+
+            walletAmountUsed = isWallet
+                ? totalAmount                                    // full wallet payment
+                : Math.Min(buyer.WalletBalance, totalAmount);    // partial: use all available balance
+
+            buyer.DebitWallet(walletAmountUsed);
+            userRepo.Update(buyer);
         }
+
+        var remainingAmount = totalAmount - walletAmountUsed;
+
+        // PaymentRef only needed when a bank transfer is still required
+        var needsBankTransfer = !isCod && !isWallet && remainingAmount > 0;
+        var paymentRef = needsBankTransfer ? "TH" + orderId.ToString("N")[..8].ToUpper() : null;
 
         var order = new Order
         {
-            Id          = orderId,
-            UserId      = request.UserId,
-            HubId       = request.HubId,
-            TotalAmount = totalAmount,
-            Note        = request.Note,
-            Items       = orderItems,
-            PaymentRef  = paymentRef,
+            Id               = orderId,
+            UserId           = request.UserId,
+            HubId            = request.HubId,
+            TotalAmount      = totalAmount,
+            WalletAmountUsed = walletAmountUsed,
+            Note             = request.Note,
+            Items            = orderItems,
+            PaymentRef       = paymentRef,
         };
 
-        // COD / Wallet: bỏ qua bước chờ thanh toán
-        if (isCod || isWallet) order.ConfirmPayment(); // PendingPayment → Paid_WaitingForBatch
+        // Confirm immediately when no pending bank transfer: COD, full wallet, hybrid+COD, or wallet covers full amount
+        if (!needsBankTransfer) order.ConfirmPayment();
 
         await orderRepo.AddAsync(order);
 
@@ -92,15 +104,17 @@ public class CreateOrderCommandHandler(
 
         await orderRepo.SaveChangesAsync();
 
-        if (isWallet && buyer is not null)
+        if (walletAmountUsed > 0 && buyer is not null)
         {
             var shortRef = orderId.ToString()[..8].ToUpper();
             await walletTransactionRepo.AddAsync(new WalletTransaction
             {
                 UserId      = buyer.Id,
-                Amount      = totalAmount,
+                Amount      = walletAmountUsed,
                 Type        = WalletTransactionType.Debit,
-                Description = $"Thanh toán đơn hàng #{shortRef}",
+                Description = isWallet
+                    ? $"Thanh toán đơn hàng #{shortRef}"
+                    : $"Thanh toán một phần đơn hàng #{shortRef} qua ví",
                 OrderId     = orderId,
             });
             await walletTransactionRepo.SaveChangesAsync();
@@ -109,13 +123,8 @@ public class CreateOrderCommandHandler(
         return MapToResponse(order, hub, cartItems);
     }
 
-    // Hub thay thế Address trong mô hình O2O:
-    //   ReceiverName = tên Hub (điểm khách đến lấy)
-    //   FullAddress  = địa chỉ đầy đủ của Hub
-    // cartItems: truyền khi Create để lấy tên SP mà không cần round-trip thêm.
-    // Các caller khác (Cancel, GetById, UpdateStatus) dùng ThenInclude nên không cần.
     internal static OrderResponse MapToResponse(Order o, Hub hub, List<CartItem>? cartItems = null) => new(
-        o.Id, o.Status, o.TotalAmount, o.Note,
+        o.Id, o.Status, o.TotalAmount, o.WalletAmountUsed, o.Note,
         new HubInfo(hub.Id, hub.Name, hub.Address, hub.Ward, hub.District, hub.City, hub.Latitude, hub.Longitude),
         o.Items.Select(i =>
         {

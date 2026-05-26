@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using TapHoa.Application.Contracts;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Enums;
 using TapHoa.Domain.Repositories;
@@ -9,7 +10,8 @@ namespace TapHoa.Application.Reviews.V1.AddReview;
 public class AddReviewCommandHandler(
     IRepository<Review> reviewRepo,
     IRepository<Product> productRepo,
-    IRepository<Order> orderRepo)
+    IRepository<Order> orderRepo,
+    IReviewModerationService moderationService)
     : IRequestHandler<AddReviewCommand, ReviewResponse>
 {
     public async Task<ReviewResponse> Handle(AddReviewCommand request, CancellationToken cancellationToken)
@@ -35,12 +37,17 @@ public class AddReviewCommandHandler(
         if (alreadyReviewed)
             throw new InvalidOperationException("Bạn đã đánh giá sản phẩm này rồi.");
 
+        var moderation = await moderationService.ModerateAsync(
+            request.Comment ?? string.Empty, cancellationToken);
+
         var review = new Review
         {
             UserId = request.UserId,
             ProductId = request.ProductId,
             Rating = request.Rating,
-            Comment = request.Comment
+            Comment = request.Comment,
+            IsApproved = !moderation.IsToxic,
+            Sentiment = moderation.Sentiment,
         };
 
         await reviewRepo.AddAsync(review);

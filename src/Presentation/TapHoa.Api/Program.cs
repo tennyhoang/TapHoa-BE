@@ -17,6 +17,8 @@ using TapHoa.Api.Endpoints.V1.Cart;
 using TapHoa.Api.Endpoints.V1.Categories;
 using TapHoa.Api.Endpoints.V1.Orders;
 using TapHoa.Api.Endpoints.V1.Payment;
+using TapHoa.Api.Endpoints.V1.Articles;
+using TapHoa.Api.Endpoints.V1.FlashSale;
 using TapHoa.Api.Endpoints.V1.Products;
 using TapHoa.Api.Endpoints.V1.Reviews;
 using TapHoa.Api.Endpoints.V1.Upload;
@@ -49,6 +51,7 @@ try
 
     builder.Services.AddOpenApi();
     builder.Services.AddHttpClient("groq");
+    builder.Services.AddHttpClient("pollinations", c => c.Timeout = TimeSpan.FromSeconds(120));
     builder.Services.AddHostedService<NightBatchJob>();
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
@@ -112,6 +115,9 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
+    app.MapArticleEndpoints();
+    app.MapFlashSaleEndpoints();
+    app.MapAdminFlashSaleEndpoints();
     app.MapAuthEndpoints();
     app.MapProductEndpoints();
     app.MapCartEndpoints();

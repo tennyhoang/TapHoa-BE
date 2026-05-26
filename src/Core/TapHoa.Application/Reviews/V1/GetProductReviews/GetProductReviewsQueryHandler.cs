@@ -12,7 +12,7 @@ public class GetProductReviewsQueryHandler(IRepository<Review> reviewRepo)
     {
         var reviews = await reviewRepo.Query()
             .Include(r => r.User)
-            .Where(r => r.ProductId == request.ProductId)
+            .Where(r => r.ProductId == request.ProductId && r.IsApproved)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -20,5 +20,5 @@ public class GetProductReviewsQueryHandler(IRepository<Review> reviewRepo)
     }
 
     public static ReviewResponse MapToResponse(Review r) => new(
-        r.Id, r.UserId, r.User.FullName, r.Rating, r.Comment, r.CreatedAt);
+        r.Id, r.UserId, r.User.FullName, r.Rating, r.Comment, r.CreatedAt, r.Sentiment);
 }

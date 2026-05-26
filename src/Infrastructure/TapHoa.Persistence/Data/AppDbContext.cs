@@ -23,6 +23,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
     public DbSet<WalletTopupRequest> WalletTopupRequests => Set<WalletTopupRequest>();
     public DbSet<WithdrawRequest> WithdrawRequests => Set<WithdrawRequest>();
+    public DbSet<FlashSaleSession> FlashSaleSessions => Set<FlashSaleSession>();
+    public DbSet<FlashSaleItem> FlashSaleItems => Set<FlashSaleItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,6 +53,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Order>(e =>
         {
             e.Property(o => o.TotalAmount).HasColumnType("decimal(18,2)");
+            e.Property(o => o.WalletAmountUsed).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             e.Property(o => o.Status).HasConversion<string>();
             e.Property(o => o.CancelReason).HasMaxLength(500);
         });
@@ -65,7 +68,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .OnDelete(DeleteBehavior.Restrict));
 
         modelBuilder.Entity<Review>(e =>
-            e.HasIndex(r => new { r.UserId, r.ProductId }).IsUnique());
+        {
+            e.HasIndex(r => new { r.UserId, r.ProductId }).IsUnique();
+            e.Property(r => r.IsApproved).HasDefaultValue(true);
+            e.Property(r => r.Sentiment).HasMaxLength(20).HasDefaultValue("Neutral");
+        });
 
         modelBuilder.Entity<Hub>(e =>
         {
@@ -194,6 +201,27 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne(w => w.User)
              .WithMany()
              .HasForeignKey(w => w.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FlashSaleSession>(e =>
+            e.Property(s => s.Name).HasMaxLength(200).IsRequired());
+
+        modelBuilder.Entity<FlashSaleItem>(e =>
+        {
+            e.Property(i => i.FlashSalePrice).HasColumnType("decimal(18,2)");
+            e.Property(i => i.SoldCount).HasDefaultValue(0);
+
+            e.HasIndex(i => new { i.FlashSaleSessionId, i.ProductId }).IsUnique();
+
+            e.HasOne(i => i.Session)
+             .WithMany(s => s.Items)
+             .HasForeignKey(i => i.FlashSaleSessionId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(i => i.Product)
+             .WithMany()
+             .HasForeignKey(i => i.ProductId)
              .OnDelete(DeleteBehavior.Cascade);
         });
 
