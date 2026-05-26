@@ -57,9 +57,10 @@ public static class InfrastructureExtension
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy("Admin",  policy => policy.RequireRole("Admin"));
-            options.AddPolicy("Agent",  policy => policy.RequireRole("Agent"));
-            options.AddPolicy("Driver", policy => policy.RequireRole("Driver"));
+            options.AddPolicy("Admin",            policy => policy.RequireRole("Admin"));
+            options.AddPolicy("Agent",            policy => policy.RequireRole("Agent"));
+            options.AddPolicy("Driver",           policy => policy.RequireRole("Driver"));
+            options.AddPolicy("WarehouseManager", policy => policy.RequireRole("WarehouseManager"));
         });
 
         return services;
