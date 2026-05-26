@@ -32,6 +32,8 @@ public static class DataSeeder
 
     public static async Task SeedAsync(AppDbContext db)
     {
+        await SeedWarehousesAsync(db);
+
         // Guard: chỉ seed khi DB hoàn toàn trống.
         if (await db.Users.AnyAsync()) return;
 
@@ -225,6 +227,55 @@ public static class DataSeeder
         ).ToList();
 
         db.HubInventories.AddRange(inventories);
+        await db.SaveChangesAsync();
+    }
+
+    static async Task SeedWarehousesAsync(AppDbContext db)
+    {
+        if (await db.Warehouses.AnyAsync()) return;
+
+        db.Warehouses.AddRange(
+            new Warehouse
+            {
+                Name        = "Kho Trung Tâm TP.HCM",
+                Address     = "227 Nguyễn Văn Cừ",
+                Ward        = "Phường 4",
+                District    = "Quận 5",
+                Province    = "TP. Hồ Chí Minh",
+                PhoneNumber = "0281234501",
+                IsActive    = true,
+            },
+            new Warehouse
+            {
+                Name        = "Kho Bình Dương",
+                Address     = "18 Đại lộ Bình Dương",
+                Ward        = "Phường Hiệp Thành",
+                District    = "Thành phố Thủ Dầu Một",
+                Province    = "Bình Dương",
+                PhoneNumber = "0271234502",
+                IsActive    = true,
+            },
+            new Warehouse
+            {
+                Name        = "Kho Long An",
+                Address     = "105 Quốc lộ 1A",
+                Ward        = "Phường 2",
+                District    = "Thành phố Tân An",
+                Province    = "Long An",
+                PhoneNumber = "0721234503",
+                IsActive    = true,
+            },
+            new Warehouse
+            {
+                Name        = "Kho Hà Nội",
+                Address     = "300 Giải Phóng",
+                Ward        = "Phường Phương Liệt",
+                District    = "Quận Thanh Xuân",
+                Province    = "Hà Nội",
+                PhoneNumber = "0241234504",
+                IsActive    = true,
+            }
+        );
         await db.SaveChangesAsync();
     }
 }
