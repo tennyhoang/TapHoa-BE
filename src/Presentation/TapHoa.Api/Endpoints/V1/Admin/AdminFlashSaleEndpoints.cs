@@ -131,8 +131,49 @@ public static class AdminFlashSaleEndpoints
 
             return Results.NoContent();
         });
+
+        group.MapPost("/{id:guid}/items/bulk", async (
+            Guid id,
+            [FromBody] BulkAddFlashSaleItemsRequest req,
+            AppDbContext db) =>
+        {
+            var sessionExists = await db.FlashSaleSessions.AnyAsync(s => s.Id == id);
+            if (!sessionExists) return Results.NotFound();
+
+            var existingProductIds = await db.FlashSaleItems
+                .Where(i => i.FlashSaleSessionId == id)
+                .Select(i => i.ProductId)
+                .ToHashSetAsync();
+
+            var activeProductIds = await db.Products
+                .Where(p => p.IsActive)
+                .Select(p => p.Id)
+                .ToHashSetAsync();
+
+            var toAdd = req.Items
+                .Where(r => !existingProductIds.Contains(r.ProductId) && activeProductIds.Contains(r.ProductId))
+                .Select(r => new FlashSaleItem
+                {
+                    FlashSaleSessionId = id,
+                    ProductId          = r.ProductId,
+                    FlashSalePrice     = r.FlashSalePrice,
+                    FlashSaleStock     = r.FlashSaleStock,
+                    SoldCount          = 0,
+                })
+                .ToList();
+
+            if (toAdd.Count > 0)
+            {
+                db.FlashSaleItems.AddRange(toAdd);
+                await db.SaveChangesAsync();
+            }
+
+            return Results.Ok(new { added = toAdd.Count, skipped = req.Items.Count - toAdd.Count });
+        });
     }
 }
 
 public record CreateFlashSaleSessionRequest(string Name, DateTime StartTime, DateTime EndTime, bool IsActive = true);
 public record AddFlashSaleItemRequest(Guid ProductId, decimal FlashSalePrice, int FlashSaleStock);
+public record BulkAddFlashSaleItemRequest(Guid ProductId, decimal FlashSalePrice, int FlashSaleStock);
+public record BulkAddFlashSaleItemsRequest(List<BulkAddFlashSaleItemRequest> Items);
