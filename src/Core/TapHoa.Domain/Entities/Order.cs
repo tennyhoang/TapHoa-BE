@@ -13,6 +13,7 @@ public class Order : BaseEntity
     public string? Note { get; set; }
     public string? CancelReason { get; private set; }
     public string? PaymentRef { get; set; }          // Mã tham chiếu chuyển khoản, e.g. TH2685894A
+    public decimal WalletAmountUsed { get; set; } = 0; // Số tiền đã trừ từ ví (0 nếu không dùng ví)
     public DateTime? PaidAt { get; private set; }
     public DateTime? ShippingToHubAt { get; private set; }
     public DateTime? InHubAt { get; private set; }

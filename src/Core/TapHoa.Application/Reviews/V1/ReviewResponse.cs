@@ -6,4 +6,5 @@ public record ReviewResponse(
     string UserFullName,
     int Rating,
     string? Comment,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string Sentiment);

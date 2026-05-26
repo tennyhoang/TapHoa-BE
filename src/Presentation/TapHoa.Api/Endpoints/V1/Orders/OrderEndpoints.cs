@@ -49,7 +49,10 @@ public static class OrderEndpoints
 
         group.MapPost("/", async (CreateOrderRequest body, ClaimsPrincipal user, IMediator mediator) =>
         {
-            var result = await mediator.Send(new CreateOrderCommand(GetUserId(user), body.HubId, body.Note, body.PaymentMethod ?? "BankTransfer"));
+            var result = await mediator.Send(new CreateOrderCommand(
+                GetUserId(user), body.HubId, body.Note,
+                body.PaymentMethod ?? "BankTransfer",
+                body.UseWallet));
             return Results.Created($"/api/v1/orders/{result.Id}", result);
         });
 
@@ -69,6 +72,6 @@ public static class OrderEndpoints
         Guid.Parse(user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
-public record CreateOrderRequest(Guid HubId, string? Note, string? PaymentMethod);
+public record CreateOrderRequest(Guid HubId, string? Note, string? PaymentMethod, bool UseWallet = false);
 public record CancelOrderRequest(string? CancelReason);
 public record UpdateStatusRequest(OrderStatus Status, string? CancelReason = null);

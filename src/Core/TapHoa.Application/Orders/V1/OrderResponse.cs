@@ -26,6 +26,7 @@ public record OrderResponse(
     Guid Id,
     OrderStatus Status,
     decimal TotalAmount,
+    decimal WalletAmountUsed,
     string? Note,
     HubInfo Hub,
     List<OrderItemResponse> Items,

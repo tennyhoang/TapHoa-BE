@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using TapHoa.Application.Contracts;
 using TapHoa.Infrastructure.Auth;
 using TapHoa.Infrastructure.Cloudinary;
+using TapHoa.Infrastructure.Moderation;
 using TapHoa.Infrastructure.Payment;
 
 namespace TapHoa.Infrastructure;
@@ -23,6 +24,7 @@ public static class InfrastructureExtension
                 "Locally: add it to appsettings.Development.json under \"Jwt\": { \"Key\": \"...\" }.");
 
         services.AddScoped<IJwtService, JwtService>();
+        services.AddScoped<IReviewModerationService, GroqModerationService>();
 
         // Cloudinary — đọc từ appsettings hoặc env vars (Cloudinary__CloudName, ...)
         services.Configure<CloudinarySettings>(configuration.GetSection("Cloudinary"));

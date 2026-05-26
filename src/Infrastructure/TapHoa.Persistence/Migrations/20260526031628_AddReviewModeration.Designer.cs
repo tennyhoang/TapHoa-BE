@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TapHoa.Persistence.Data;
@@ -11,9 +12,11 @@ using TapHoa.Persistence.Data;
 namespace TapHoa.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260526031628_AddReviewModeration")]
+    partial class AddReviewModeration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -177,76 +180,6 @@ namespace TapHoa.Persistence.Migrations
                     b.HasIndex("ParentId");
 
                     b.ToTable("Categories");
-                });
-
-            modelBuilder.Entity("TapHoa.Domain.Entities.FlashSaleItem", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("FlashSalePrice")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("FlashSaleSessionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("FlashSaleStock")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("SoldCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductId");
-
-                    b.HasIndex("FlashSaleSessionId", "ProductId")
-                        .IsUnique();
-
-                    b.ToTable("FlashSaleItems");
-                });
-
-            modelBuilder.Entity("TapHoa.Domain.Entities.FlashSaleSession", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("EndTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateTime>("StartTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("FlashSaleSessions");
                 });
 
             modelBuilder.Entity("TapHoa.Domain.Entities.Hub", b =>
@@ -890,25 +823,6 @@ namespace TapHoa.Persistence.Migrations
                     b.Navigation("Parent");
                 });
 
-            modelBuilder.Entity("TapHoa.Domain.Entities.FlashSaleItem", b =>
-                {
-                    b.HasOne("TapHoa.Domain.Entities.FlashSaleSession", "Session")
-                        .WithMany("Items")
-                        .HasForeignKey("FlashSaleSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TapHoa.Domain.Entities.Product", "Product")
-                        .WithMany()
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Product");
-
-                    b.Navigation("Session");
-                });
-
             modelBuilder.Entity("TapHoa.Domain.Entities.HubInventory", b =>
                 {
                     b.HasOne("TapHoa.Domain.Entities.Hub", "Hub")
@@ -1131,11 +1045,6 @@ namespace TapHoa.Persistence.Migrations
                     b.Navigation("Children");
 
                     b.Navigation("Products");
-                });
-
-            modelBuilder.Entity("TapHoa.Domain.Entities.FlashSaleSession", b =>
-                {
-                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("TapHoa.Domain.Entities.Hub", b =>
