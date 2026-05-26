@@ -7,6 +7,7 @@ using Scalar.AspNetCore;
 using TapHoa.Api.BackgroundJobs;
 using TapHoa.Api.Endpoints.V1.Admin;
 using TapHoa.Api.Endpoints.V1.Wallet;
+using TapHoa.Api.Endpoints.V1.Warehouses;
 using TapHoa.Api.Endpoints.V1.Agent;
 using TapHoa.Api.Endpoints.V1.Addresses;
 using TapHoa.Api.Endpoints.V1.Claims;
@@ -52,6 +53,16 @@ try
     builder.Services.AddOpenApi();
     builder.Services.AddHttpClient("groq");
     builder.Services.AddHttpClient("pollinations", c => c.Timeout = TimeSpan.FromSeconds(120));
+    builder.Services.AddHttpClient("nominatim", c =>
+    {
+        // Nominatim ToS: User-Agent bắt buộc
+        c.DefaultRequestHeaders.UserAgent.ParseAdd("TapHoa/1.0 (ttuan0147@gmail.com)");
+        c.Timeout = TimeSpan.FromSeconds(10);
+    });
+    builder.Services.AddHttpClient("ors", c =>
+    {
+        c.Timeout = TimeSpan.FromSeconds(30);
+    });
     builder.Services.AddHostedService<NightBatchJob>();
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
@@ -137,6 +148,8 @@ try
     app.MapClaimEndpoints();
     app.MapPaymentEndpoints();
     app.MapWalletEndpoints();
+    app.MapWarehouseEndpoints();
+    app.MapAdminWarehouseEndpoints();
 
     app.Run();
 }

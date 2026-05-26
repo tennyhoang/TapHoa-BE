@@ -13,12 +13,16 @@ public static class AdminArticleEndpoints
     private const string ImageSystemPrompt =
         """
         You are an expert at writing image prompts for AI image generators.
-        Given a Vietnamese food/grocery blog article title and excerpt, write a photorealistic image prompt in English for Flux AI.
+        Given a Vietnamese food/grocery blog article title, excerpt, and category, write a photorealistic image prompt in English for Flux AI.
 
-        Rules:
-        - Always include: professional food photography, natural lighting, vibrant colors, high resolution, clean background
-        - If the topic involves comparing quality, choosing freshness, or evaluating products: use a "split image, two panels side by side" composition showing the contrast (e.g., fresh vs stale, good vs bad, organic vs conventional)
-        - If the topic is about a specific food item: show that food beautifully plated or displayed at a market
+        Category rules (follow strictly):
+        - "san-pham-noi-bat" (featured product): show the product PACKAGING/BAG/BOX as the hero shot — clean studio background, soft shadow, product label clearly visible, commercial product photography style
+        - "dinh-duong" (nutrition): ingredients or fresh food beautifully arranged, food styling, natural light
+        - "mua-sam-thong-minh" (smart shopping): if comparing quality/freshness use "split image, two panels side by side"; otherwise a market/grocery scene
+        - "he-thong-hub" (hub system): modern logistics, delivery, or store scene
+
+        General rules:
+        - Always include: professional photography, natural lighting, vibrant colors, high resolution
         - Maximum 70 words
         - Return ONLY the prompt text, nothing else, no explanation
         """;
@@ -76,18 +80,26 @@ public static class AdminArticleEndpoints
                 return Results.BadRequest(new { error = "GROQ_API_KEY chưa được cấu hình" });
 
             var articlePrompt = $$"""
-                Bạn là chuyên gia dinh dưỡng và thực phẩm Việt Nam. Viết bài blog cho website tạp hóa online TapHoa.
+                Bạn là biên tập viên cẩm nang thực phẩm cho website tạp hóa online TapHoa — giọng văn như người bạn am hiểu chia sẻ kinh nghiệm thực tế, không phải giáo sư giảng bài.
 
                 Chủ đề: "{{request.Topic}}"
                 Danh mục: {{request.Category}}
 
-                Yêu cầu:
-                - Tiêu đề hấp dẫn, ngắn gọn (dưới 70 ký tự)
-                - Mô tả ngắn 1-2 câu (dưới 150 ký tự)
-                - Nội dung 400-600 từ, chia 3-4 đoạn với heading markdown (##)
-                - Thông tin chính xác, paraphrase từ WHO/FAO/Bộ Y tế Việt Nam, không copy nguyên văn
-                - Văn phong gần gũi, thực tế cho người nội trợ Việt Nam
-                - Kết thúc bằng 3-5 gợi ý thực tế
+                Yêu cầu bắt buộc về NỘI DUNG:
+                - Tiêu đề hấp dẫn, cụ thể, ngắn gọn (dưới 70 ký tự) — không dùng từ chung chung như "Hướng dẫn", "Giới thiệu"
+                - Excerpt 1-2 câu móc nối cảm xúc hoặc nêu vấn đề cụ thể (dưới 150 ký tự)
+                - Nội dung 450-600 từ với đúng cấu trúc sau:
+                  • Đoạn mở đầu KHÔNG có heading: 2-3 câu hook gây tò mò hoặc nêu điều ít biết về chủ đề
+                  • 3-4 section với ## heading ngắn gọn, súc tích (VD: "## Chọn đúng — tránh hàng giả", "## Bảo quản đúng cách")
+                  • Mỗi section dùng **in đậm** cho từ khóa quan trọng, *in nghiêng* cho tên chuyên môn hoặc lưu ý
+                  • Ít nhất 2 section có bullet list (- item) với thông tin cụ thể, không chung chung
+                  • Section cuối là gợi ý thực tế cho bếp gia đình (3-5 gợi ý dạng bullet)
+
+                Yêu cầu về PHONG CÁCH:
+                - Xưng "bạn", giọng thân mật như người bạn mách nước, không phải hướng dẫn khô khan
+                - Dùng số liệu cụ thể khi có thể (VD: "chứa 3.5mg sắt/100g", "bảo quản được 2-3 tháng")
+                - Thông tin chính xác, paraphrase từ Viện Dinh dưỡng Quốc gia / WHO / Bộ Y tế VN
+                - KHÔNG dùng các mẫu câu sáo rỗng như: "không chỉ... mà còn", "hãy cùng khám phá", "hy vọng bài viết"
 
                 Trả về JSON theo đúng format này, không kèm markdown code block:
                 {"title": "...", "excerpt": "...", "content": "..."}
@@ -147,7 +159,7 @@ public static class AdminArticleEndpoints
                         messages    = new[]
                         {
                             new { role = "system", content = ImageSystemPrompt },
-                            new { role = "user",   content = $"Title: {title}\nExcerpt: {excerpt}" },
+                            new { role = "user",   content = $"Category: {request.Category}\nTitle: {title}\nExcerpt: {excerpt}" },
                         },
                         temperature = 0.8,
                         max_tokens  = 150,

@@ -1,6 +1,8 @@
 using MediatR;
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TapHoa.Application.Driver.V1;
+using TapHoa.Application.Driver.V1.OptimizeRoute;
 
 namespace TapHoa.Api.Endpoints.V1.Driver;
 
@@ -68,6 +70,22 @@ public static class DriverEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
 
+        // POST /api/v1/driver/optimize-route
+        // Tối ưu lộ trình giao hàng qua OpenRouteService.
+        // Input: hubAddress + danh sách địa chỉ đơn hàng.
+        // Output: danh sách điểm ghé theo thứ tự tối ưu (fallback = thứ tự gốc nếu ORS lỗi).
+        group.MapPost("/optimize-route", async (
+            [FromBody] OptimizeRouteRequest body,
+            IMediator mediator) =>
+        {
+            var result = await mediator.Send(
+                new OptimizeRouteCommand(body.HubAddress, body.OrderAddresses));
+
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { result.Error, result.ErrorCode });
+        });
+
         // PATCH /api/v1/driver/orders/pickup-from-warehouse  (giữ nguyên — endpoint cũ)
         group.MapPatch("/orders/pickup-from-warehouse", async (
             PickupRequest body, ClaimsPrincipal user, IMediator mediator) =>
@@ -100,3 +118,4 @@ public static class DriverEndpoints
 
 public record PickupRequest(List<Guid> OrderIds);
 public record DispatchRequest(List<Guid> OrderIds);
+public record OptimizeRouteRequest(string HubAddress, List<string> OrderAddresses);
