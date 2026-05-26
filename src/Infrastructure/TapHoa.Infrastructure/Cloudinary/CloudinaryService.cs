@@ -49,4 +49,24 @@ public sealed class CloudinaryService : ICloudinaryService
 
         return result.SecureUrl.AbsoluteUri;
     }
+
+    public async Task<string> UploadImageFromUrlAsync(string remoteUrl, string folderName = "taphoa_articles")
+    {
+        var uploadParams = new ImageUploadParams
+        {
+            File           = new FileDescription(remoteUrl),
+            Folder         = folderName,
+            UseFilename    = false,
+            UniqueFilename = true,
+            Overwrite      = false,
+            Transformation = new Transformation().Quality("auto").FetchFormat("auto"),
+        };
+
+        var result = await _cloudinary.UploadAsync(uploadParams);
+
+        if (result.Error is not null)
+            throw new InvalidOperationException($"Cloudinary upload thất bại: {result.Error.Message}");
+
+        return result.SecureUrl.AbsoluteUri;
+    }
 }
