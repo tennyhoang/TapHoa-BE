@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TapHoa.Application.Driver.V1;
+using TapHoa.Application.Driver.V1.GetDriverWarehouse;
 using TapHoa.Application.Driver.V1.OptimizeRoute;
 
 namespace TapHoa.Api.Endpoints.V1.Driver;
@@ -13,6 +14,17 @@ public static class DriverEndpoints
     {
         var group = app.MapGroup("/api/v1/driver").WithTags("Driver")
             .RequireAuthorization("Driver");
+
+        // GET /api/v1/driver/me/warehouse
+        // Trả về kho cố định được gán cho Driver đang đăng nhập.
+        // 404 nếu chưa được gán kho (DRIVER_NO_WAREHOUSE).
+        group.MapGet("/me/warehouse", async (IMediator mediator) =>
+        {
+            var result = await mediator.Send(new GetDriverWarehouseQuery());
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.NotFound(new { result.Error, result.ErrorCode });
+        });
 
         // GET /api/v1/driver/active-orders
         // Đơn chờ gom (Paid_WaitingForBatch) tại Hub của Driver — dùng cho màn hình gom đơn 12h đêm

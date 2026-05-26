@@ -24,6 +24,8 @@ public static class InfrastructureExtension
                 "On Render: set the Jwt__Key environment variable. " +
                 "Locally: add it to appsettings.Development.json under \"Jwt\": { \"Key\": \"...\" }.");
 
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IReviewModerationService, GroqModerationService>();
         services.AddScoped<IRouteOptimizationService, OpenRouteOptimizationService>();
