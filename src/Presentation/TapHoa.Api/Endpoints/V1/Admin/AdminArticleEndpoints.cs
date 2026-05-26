@@ -138,6 +138,7 @@ public static class AdminArticleEndpoints
 
                 // ── Step 2: generate image prompt via Groq ────────────────────
                 string? imageUrl = null;
+                string? imageError = null;
                 try
                 {
                     var imagePromptBody = JsonSerializer.Serialize(new
@@ -166,7 +167,7 @@ public static class AdminArticleEndpoints
                             .GetProperty("content")
                             .GetString()?.Trim() ?? "";
 
-                        // ── Step 3: generate via Pollinations.ai, upload stream to Cloudinary ──
+                        // ── Step 3: generate via Pollinations.ai, upload to Cloudinary ──
                         if (!string.IsNullOrWhiteSpace(imagePrompt))
                         {
                             var seed          = Math.Abs(imagePrompt.GetHashCode() % 1_000_000);
@@ -175,26 +176,29 @@ public static class AdminArticleEndpoints
                                 $"https://image.pollinations.ai/prompt/{encodedPrompt}" +
                                 $"?width=1200&height=630&model=flux-realism&seed={seed}&nologo=true";
 
-                            // Fetch with long timeout — Pollinations needs 30–60 s to generate
                             var pollinationsClient = httpClientFactory.CreateClient("pollinations");
-                            using var imageResponse = await pollinationsClient.GetAsync(
-                                pollinationsUrl, HttpCompletionOption.ResponseHeadersRead);
+                            using var imageResponse = await pollinationsClient.GetAsync(pollinationsUrl);
 
                             if (imageResponse.IsSuccessStatusCode)
                             {
-                                await using var imageStream = await imageResponse.Content.ReadAsStreamAsync();
+                                var imageBytes = await imageResponse.Content.ReadAsByteArrayAsync();
+                                using var ms = new MemoryStream(imageBytes);
                                 imageUrl = await cloudinaryService.UploadImageAsync(
-                                    imageStream, "article.jpg", "taphoa_articles");
+                                    ms, "article.jpg", "taphoa_articles");
+                            }
+                            else
+                            {
+                                imageError = $"Pollinations {(int)imageResponse.StatusCode}";
                             }
                         }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Image generation is best-effort — never fail the whole request
+                    imageError = ex.Message;
                 }
 
-                return Results.Ok(new { title, excerpt, content, imageUrl });
+                return Results.Ok(new { title, excerpt, content, imageUrl, imageError });
             }
             catch (Exception ex)
             {
