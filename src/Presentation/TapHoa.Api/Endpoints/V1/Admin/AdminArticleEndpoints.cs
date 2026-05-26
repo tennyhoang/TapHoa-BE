@@ -11,34 +11,11 @@ public static class AdminArticleEndpoints
 {
     public static void MapAdminArticleEndpoints(this IEndpointRouteBuilder app)
     {
-        // ── Public ──────────────────────────────────────────────
-        app.MapGet("/api/v1/articles", async (AppDbContext db) =>
-        {
-            var articles = await db.Articles
-                .Where(a => a.IsPublished)
-                .OrderByDescending(a => a.CreatedAt)
-                .Select(a => new
-                {
-                    a.Id,
-                    a.Title,
-                    a.Excerpt,
-                    a.Content,
-                    a.Category,
-                    a.ImageUrl,
-                    a.ReadTimeMinutes,
-                    a.CreatedAt,
-                })
-                .ToListAsync();
-            return Results.Ok(articles);
-        })
-        .WithTags("Articles");
-
-        // ── Admin ────────────────────────────────────────────────
-        var admin = app.MapGroup("/api/v1/admin/articles")
+        var group = app.MapGroup("/api/v1/admin/articles")
             .WithTags("Admin - Articles")
             .RequireAuthorization("Admin");
 
-        admin.MapGet("/", async (AppDbContext db) =>
+        group.MapGet("/", async (AppDbContext db) =>
         {
             var articles = await db.Articles
                 .OrderByDescending(a => a.CreatedAt)
@@ -47,24 +24,24 @@ public static class AdminArticleEndpoints
             return Results.Ok(articles);
         });
 
-        admin.MapPost("/", async ([FromBody] SaveArticleRequest req, AppDbContext db) =>
+        group.MapPost("/", async ([FromBody] SaveArticleRequest req, AppDbContext db) =>
         {
             var article = new Article
             {
-                Title          = req.Title,
-                Excerpt        = req.Excerpt,
-                Content        = req.Content,
-                Category       = req.Category,
-                ImageUrl       = req.ImageUrl,
+                Title           = req.Title,
+                Excerpt         = req.Excerpt,
+                Content         = req.Content,
+                Category        = req.Category,
+                ImageUrl        = req.ImageUrl,
                 ReadTimeMinutes = req.ReadTimeMinutes,
-                IsPublished    = true,
+                IsPublished     = true,
             };
             db.Articles.Add(article);
             await db.SaveChangesAsync();
             return Results.Ok(new { article.Id });
         });
 
-        admin.MapDelete("/{id:guid}", async (Guid id, AppDbContext db) =>
+        group.MapDelete("/{id:guid}", async (Guid id, AppDbContext db) =>
         {
             var article = await db.Articles.FindAsync(id);
             if (article is null) return Results.NotFound();
@@ -73,7 +50,7 @@ public static class AdminArticleEndpoints
             return Results.NoContent();
         });
 
-        admin.MapPost("/generate", async (
+        group.MapPost("/generate", async (
             [FromBody] GenerateArticleRequest request,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration) =>
@@ -103,10 +80,10 @@ public static class AdminArticleEndpoints
 
             var body = JsonSerializer.Serialize(new
             {
-                model = "llama-3.3-70b-versatile",
-                messages = new[] { new { role = "user", content = prompt } },
-                temperature = 0.7,
-                response_format = new { type = "json_object" }
+                model           = "llama-3.3-70b-versatile",
+                messages        = new[] { new { role = "user", content = prompt } },
+                temperature     = 0.7,
+                response_format = new { type = "json_object" },
             });
 
             try
