@@ -24,6 +24,8 @@ public static class InfrastructureExtension
                 "On Render: set the Jwt__Key environment variable. " +
                 "Locally: add it to appsettings.Development.json under \"Jwt\": { \"Key\": \"...\" }.");
 
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IReviewModerationService, GroqModerationService>();
         services.AddScoped<IRouteOptimizationService, OpenRouteOptimizationService>();
@@ -55,9 +57,10 @@ public static class InfrastructureExtension
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy("Admin",  policy => policy.RequireRole("Admin"));
-            options.AddPolicy("Agent",  policy => policy.RequireRole("Agent"));
-            options.AddPolicy("Driver", policy => policy.RequireRole("Driver"));
+            options.AddPolicy("Admin",            policy => policy.RequireRole("Admin"));
+            options.AddPolicy("Agent",            policy => policy.RequireRole("Agent"));
+            options.AddPolicy("Driver",           policy => policy.RequireRole("Driver"));
+            options.AddPolicy("WarehouseManager", policy => policy.RequireRole("WarehouseManager"));
         });
 
         return services;

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TapHoa.Application.Driver.V1;
+using TapHoa.Application.Driver.V1.GetDriverWarehouse;
 using TapHoa.Application.Driver.V1.OptimizeRoute;
 
 namespace TapHoa.Api.Endpoints.V1.Driver;
@@ -13,6 +14,17 @@ public static class DriverEndpoints
     {
         var group = app.MapGroup("/api/v1/driver").WithTags("Driver")
             .RequireAuthorization("Driver");
+
+        // GET /api/v1/driver/me/warehouse
+        // Trả về kho cố định được gán cho Driver đang đăng nhập.
+        // 404 nếu chưa được gán kho (DRIVER_NO_WAREHOUSE).
+        group.MapGet("/me/warehouse", async (IMediator mediator) =>
+        {
+            var result = await mediator.Send(new GetDriverWarehouseQuery());
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.NotFound(new { result.Error, result.ErrorCode });
+        });
 
         // GET /api/v1/driver/active-orders
         // Đơn chờ gom (Paid_WaitingForBatch) tại Hub của Driver — dùng cho màn hình gom đơn 12h đêm
@@ -72,14 +84,17 @@ public static class DriverEndpoints
 
         // POST /api/v1/driver/optimize-route
         // Tối ưu lộ trình giao hàng qua OpenRouteService.
-        // Input: hubAddress + danh sách địa chỉ đơn hàng.
+        // Kho xuất phát được lấy tự động từ WarehouseId trên tài khoản Driver đang đăng nhập.
+        // Input: danh sách địa chỉ Hub cần ghé.
         // Output: danh sách điểm ghé theo thứ tự tối ưu (fallback = thứ tự gốc nếu ORS lỗi).
         group.MapPost("/optimize-route", async (
             [FromBody] OptimizeRouteRequest body,
+            ClaimsPrincipal user,
             IMediator mediator) =>
         {
+            var driverId = GetUserId(user);
             var result = await mediator.Send(
-                new OptimizeRouteCommand(body.HubAddress, body.OrderAddresses));
+                new OptimizeRouteCommand(driverId, body.OrderAddresses));
 
             return result.IsSuccess
                 ? Results.Ok(result.Value)
@@ -118,4 +133,4 @@ public static class DriverEndpoints
 
 public record PickupRequest(List<Guid> OrderIds);
 public record DispatchRequest(List<Guid> OrderIds);
-public record OptimizeRouteRequest(string HubAddress, List<string> OrderAddresses);
+public record OptimizeRouteRequest(List<string> OrderAddresses);

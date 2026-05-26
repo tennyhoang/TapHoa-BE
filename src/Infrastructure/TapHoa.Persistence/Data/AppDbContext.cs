@@ -37,10 +37,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(u => u.FullName).HasMaxLength(200);
             e.Property(u => u.Email).HasMaxLength(256);
 
-            // Agent FK — null для Customer/Admin
+            // Agent: Hub được phân công (null với Customer/Admin/Driver/WarehouseManager)
             e.HasOne<Hub>()
              .WithMany()
              .HasForeignKey(u => u.AgentHubId)
+             .OnDelete(DeleteBehavior.SetNull)
+             .IsRequired(false);
+
+            // Driver: kho xuất phát cố định
+            e.HasOne(u => u.AssignedWarehouse)
+             .WithMany(w => w.AssignedDrivers)
+             .HasForeignKey(u => u.WarehouseId)
+             .OnDelete(DeleteBehavior.SetNull)
+             .IsRequired(false);
+
+            // WarehouseManager: kho phụ trách
+            e.HasOne(u => u.ManagedWarehouse)
+             .WithMany()
+             .HasForeignKey(u => u.ManagedWarehouseId)
              .OnDelete(DeleteBehavior.SetNull)
              .IsRequired(false);
         });

@@ -12,8 +12,21 @@ public class User : BaseEntity
     public string? AvatarUrl { get; set; }
     public bool IsActive { get; set; } = true;
     public UserRole Role { get; set; } = UserRole.Customer;
+
+    // Agent: Hub được phân công
     public Guid? AgentHubId { get; set; }
+
+    // Driver: kho xuất phát cố định được Admin gắn
+    public Guid? WarehouseId { get; set; }
+
+    // WarehouseManager: kho mà user này phụ trách quản lý
+    public Guid? ManagedWarehouseId { get; set; }
+
     public decimal WalletBalance { get; private set; } = 0m;
+
+    // Navigation
+    public Warehouse? AssignedWarehouse { get; set; }
+    public Warehouse? ManagedWarehouse  { get; set; }
 
     public ICollection<Address> Addresses { get; set; } = [];
     public ICollection<Order> Orders { get; set; } = [];

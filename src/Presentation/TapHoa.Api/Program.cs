@@ -138,6 +138,7 @@ try
     app.MapUserEndpoints();
     app.MapReviewEndpoints();
     app.MapUploadEndpoints();
+    app.MapAdminUserEndpoints();
     app.MapAdminRevenueEndpoints();
     app.MapAdminArticleEndpoints();
     app.MapAdminWalletEndpoints();

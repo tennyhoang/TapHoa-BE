@@ -31,21 +31,32 @@ public class GetAllUsersQueryHandler(IRepository<User> userRepo)
 
         var total = await query.CountAsync(cancellationToken);
 
+        // EF Core dịch navigation sang LEFT JOIN — không cần Include riêng khi dùng trong Select
         var items = await query
             .OrderBy(u => u.CreatedAt)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
             .Select(u => new AdminUserResponse(
-                u.Id, u.FullName, u.Email, u.PhoneNumber,
-                u.Role.ToString(), u.IsActive, u.AgentHubId, u.CreatedAt))
+                u.Id,
+                u.FullName,
+                u.Email,
+                u.PhoneNumber,
+                u.Role.ToString(),
+                u.IsActive,
+                u.AgentHubId,
+                u.CreatedAt,
+                u.WarehouseId,
+                u.AssignedWarehouse != null ? u.AssignedWarehouse.Name : null,
+                u.ManagedWarehouseId,
+                u.ManagedWarehouse  != null ? u.ManagedWarehouse.Name  : null))
             .ToListAsync(cancellationToken);
 
         return Result<PagedResult<AdminUserResponse>>.Ok(new PagedResult<AdminUserResponse>
         {
-            Items = items,
+            Items      = items,
             TotalCount = total,
-            Page = request.Page,
-            PageSize = request.PageSize,
+            Page       = request.Page,
+            PageSize   = request.PageSize,
         });
     }
 }
