@@ -1,6 +1,7 @@
 using MediatR;
 using TapHoa.Application.Auth.V1.Login;
 using TapHoa.Application.Auth.V1.Register;
+using TapHoa.Application.Auth.V1.SocialLogin;
 
 namespace TapHoa.Api.Endpoints.V1.Auth;
 
@@ -14,6 +15,9 @@ public static class AuthEndpoints
             Results.Ok(await mediator.Send(command)));
 
         group.MapPost("/login", async (LoginCommand command, IMediator mediator) =>
+            Results.Ok(await mediator.Send(command)));
+
+        group.MapPost("/social-login", async (SocialLoginCommand command, IMediator mediator) =>
             Results.Ok(await mediator.Send(command)));
     }
 }
