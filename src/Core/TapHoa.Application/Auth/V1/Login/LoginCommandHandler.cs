@@ -13,6 +13,9 @@ public class LoginCommandHandler(IRepository<User> userRepo, IJwtService jwtServ
         var user = await userRepo.FindAsync(u => u.Email == request.Email)
             ?? throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng.");
 
+        if (string.IsNullOrEmpty(user.PasswordHash))
+            throw new UnauthorizedAccessException("Tài khoản này đăng nhập bằng mạng xã hội (Google/Facebook).");
+
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng.");
 
