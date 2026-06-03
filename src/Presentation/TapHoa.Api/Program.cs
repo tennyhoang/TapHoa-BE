@@ -56,7 +56,8 @@ try
     builder.Services.AddHttpClient("nominatim", c =>
     {
         // Nominatim ToS: User-Agent bắt buộc
-        c.DefaultRequestHeaders.UserAgent.ParseAdd("TapHoa/1.0 (ttuan0147@gmail.com)");
+        var contactEmail = builder.Configuration["Nominatim:ContactEmail"] ?? "support@taphoa.vn";
+        c.DefaultRequestHeaders.UserAgent.ParseAdd($"TapHoa/1.0 ({contactEmail})");
         c.Timeout = TimeSpan.FromSeconds(10);
     });
     builder.Services.AddHttpClient("ors", c =>
