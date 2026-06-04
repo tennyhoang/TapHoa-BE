@@ -18,6 +18,10 @@ public class UpdateOrderStatusCommandHandlerTests
 
     public UpdateOrderStatusCommandHandlerTests()
     {
+        _inventoryRepoMock
+            .Setup(r => r.FindAsync(It.IsAny<Guid>(), It.IsAny<Guid>()))
+            .ReturnsAsync((HubInventory?)null);
+
         _handler = new UpdateOrderStatusCommandHandler(
             _orderRepoMock.Object, _inventoryRepoMock.Object, _publisherMock.Object);
     }
@@ -40,26 +44,28 @@ public class UpdateOrderStatusCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_PendingToConfirmed_UpdatesStatus()
+    public async Task Handle_PaidWaitingForBatchToShippingToHub_UpdatesStatus()
     {
         var id = Guid.NewGuid();
-        var order = BuildOrder(OrderStatus.Pending, id);
+        var order = BuildOrder(OrderStatus.Paid_WaitingForBatch, id);
         _orderRepoMock.Setup(r => r.Query()).Returns(new List<Order> { order }.BuildMockDbSet().Object);
 
-        var result = await _handler.Handle(new UpdateOrderStatusCommand(id, OrderStatus.Confirmed), CancellationToken.None);
+        var result = await _handler.Handle(
+            new UpdateOrderStatusCommand(id, OrderStatus.ShippingToHub), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Status.Should().Be(OrderStatus.Confirmed);
+        result.Value!.Status.Should().Be(OrderStatus.ShippingToHub);
     }
 
     [Fact]
     public async Task Handle_InvalidTransition_ReturnsFailResult()
     {
         var id = Guid.NewGuid();
-        var order = BuildOrder(OrderStatus.Delivered, id);
+        var order = BuildOrder(OrderStatus.Completed, id);
         _orderRepoMock.Setup(r => r.Query()).Returns(new List<Order> { order }.BuildMockDbSet().Object);
 
-        var result = await _handler.Handle(new UpdateOrderStatusCommand(id, OrderStatus.Cancelled), CancellationToken.None);
+        var result = await _handler.Handle(
+            new UpdateOrderStatusCommand(id, OrderStatus.Cancelled), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("INVALID_TRANSITION");
@@ -70,25 +76,27 @@ public class UpdateOrderStatusCommandHandlerTests
     {
         _orderRepoMock.Setup(r => r.Query()).Returns(new List<Order>().BuildMockDbSet().Object);
 
-        var result = await _handler.Handle(new UpdateOrderStatusCommand(Guid.NewGuid(), OrderStatus.Confirmed), CancellationToken.None);
+        var result = await _handler.Handle(
+            new UpdateOrderStatusCommand(Guid.NewGuid(), OrderStatus.ShippingToHub), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("ORDER_NOT_FOUND");
     }
 
     [Theory]
-    [InlineData(OrderStatus.Pending,      OrderStatus.Confirmed)]
-    [InlineData(OrderStatus.Pending,      OrderStatus.Cancelled)]
-    [InlineData(OrderStatus.Confirmed,    OrderStatus.Shipping)]
-    [InlineData(OrderStatus.Shipping,     OrderStatus.ArrivedAtHub)]
-    [InlineData(OrderStatus.ArrivedAtHub, OrderStatus.Delivered)]
+    [InlineData(OrderStatus.Paid_WaitingForBatch, OrderStatus.ShippingToHub)]
+    [InlineData(OrderStatus.ShippingToHub, OrderStatus.InHub_ReadyForPickup)]
+    [InlineData(OrderStatus.InHub_ReadyForPickup, OrderStatus.Completed)]
+    [InlineData(OrderStatus.Paid_WaitingForBatch, OrderStatus.Cancelled)]
+    [InlineData(OrderStatus.PendingPayment, OrderStatus.Cancelled)]
     public async Task Handle_ValidTransitions_Succeed(OrderStatus from, OrderStatus to)
     {
         var id = Guid.NewGuid();
         var order = BuildOrder(from, id);
         _orderRepoMock.Setup(r => r.Query()).Returns(new List<Order> { order }.BuildMockDbSet().Object);
 
-        var result = await _handler.Handle(new UpdateOrderStatusCommand(id, to), CancellationToken.None);
+        var result = await _handler.Handle(
+            new UpdateOrderStatusCommand(id, to), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Status.Should().Be(to);

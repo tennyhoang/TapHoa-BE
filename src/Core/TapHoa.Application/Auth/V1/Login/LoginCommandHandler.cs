@@ -5,7 +5,10 @@ using TapHoa.Domain.Repositories;
 
 namespace TapHoa.Application.Auth.V1.Login;
 
-public class LoginCommandHandler(IRepository<User> userRepo, IJwtService jwtService)
+public class LoginCommandHandler(
+    IRepository<User> userRepo,
+    IRepository<RefreshToken> refreshTokenRepo,
+    IJwtService jwtService)
     : IRequestHandler<LoginCommand, LoginResponse>
 {
     public async Task<LoginResponse> Handle(LoginCommand request, CancellationToken cancellationToken)
@@ -22,6 +25,23 @@ public class LoginCommandHandler(IRepository<User> userRepo, IJwtService jwtServ
         if (!user.IsActive)
             throw new UnauthorizedAccessException("Tài khoản đã bị vô hiệu hóa.");
 
-        return new LoginResponse(jwtService.GenerateToken(user), user.Email, user.FullName, user.Role.ToString());
+        var refreshTokenEntity = new RefreshToken
+        {
+            UserId = user.Id,
+            Token = jwtService.GenerateRefreshToken(),
+            ExpiresAt = DateTime.UtcNow.AddDays(30),
+        };
+
+        await refreshTokenRepo.AddAsync(refreshTokenEntity);
+        await refreshTokenRepo.SaveChangesAsync();
+
+        return new LoginResponse(
+            jwtService.GenerateToken(user),
+            refreshTokenEntity.Token,
+            user.Email,
+            user.FullName,
+            user.Role.ToString(),
+            user.EmailConfirmed
+        );
     }
 }

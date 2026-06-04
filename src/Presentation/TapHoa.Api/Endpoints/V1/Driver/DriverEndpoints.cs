@@ -15,9 +15,6 @@ public static class DriverEndpoints
         var group = app.MapGroup("/api/v1/driver").WithTags("Driver")
             .RequireAuthorization("Driver");
 
-        // GET /api/v1/driver/me/warehouse
-        // Trả về kho cố định được gán cho Driver đang đăng nhập.
-        // 404 nếu chưa được gán kho (DRIVER_NO_WAREHOUSE).
         group.MapGet("/me/warehouse", async (IMediator mediator) =>
         {
             var result = await mediator.Send(new GetDriverWarehouseQuery());
@@ -26,8 +23,6 @@ public static class DriverEndpoints
                 : Results.NotFound(new { result.Error, result.ErrorCode });
         });
 
-        // GET /api/v1/driver/active-orders
-        // Đơn chờ gom (Paid_WaitingForBatch) tại Hub của Driver — dùng cho màn hình gom đơn 12h đêm
         group.MapGet("/active-orders", async (ClaimsPrincipal user, IMediator mediator) =>
         {
             if (!TryGetHubId(user, out var hubId))
@@ -39,8 +34,6 @@ public static class DriverEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
 
-        // POST /api/v1/driver/orders/dispatch
-        // Driver xác nhận gom xong → chuyển batch sang ShippingToHub
         group.MapPost("/orders/dispatch", async (
             DispatchRequest body, ClaimsPrincipal user, IMediator mediator) =>
         {
@@ -55,7 +48,6 @@ public static class DriverEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
 
-        // GET /api/v1/driver/orders  — đơn Paid_WaitingForBatch gom theo hub
         group.MapGet("/orders", async (IMediator mediator) =>
         {
             var result = await mediator.Send(new GetDriverOrdersQuery());
@@ -64,7 +56,6 @@ public static class DriverEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
 
-        // GET /api/v1/driver/orders/shipping — đơn đang vận chuyển (ShippingToHub)
         group.MapGet("/orders/shipping", async (IMediator mediator, int page = 1, int pageSize = 50) =>
         {
             var result = await mediator.Send(new GetDriverShippingOrdersQuery(page, pageSize));
@@ -73,7 +64,6 @@ public static class DriverEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
 
-        // GET /api/v1/driver/orders/delivered — đơn đã giao đến hub hôm nay
         group.MapGet("/orders/delivered", async (IMediator mediator, int page = 1, int pageSize = 30) =>
         {
             var result = await mediator.Send(new GetDriverDeliveredOrdersQuery(page, pageSize));

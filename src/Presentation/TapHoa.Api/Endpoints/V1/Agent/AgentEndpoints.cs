@@ -6,7 +6,6 @@ using TapHoa.Domain.Enums;
 
 namespace TapHoa.Api.Endpoints.V1.Agent;
 
-// Request body gửi từ frontend khi báo cáo hàng lỗi
 public record ReportDamagedGoodsRequest(
     Guid OrderId,
     Guid ProductId,
@@ -21,7 +20,6 @@ public static class AgentEndpoints
         var group = app.MapGroup("/api/v1/agent").WithTags("Agent")
             .RequireAuthorization("Agent");
 
-        // Lấy danh sách đơn hàng tại Hub của Agent
         group.MapGet("/orders", async (
             ClaimsPrincipal user, IMediator mediator,
             OrderStatus? status = null, int page = 1, int pageSize = 20) =>
@@ -61,7 +59,6 @@ public static class AgentEndpoints
         group.MapPost("/orders/{id:guid}/confirm-pickup", ConfirmPickup)
              .WithName("AgentConfirmPickup");
 
-        // Báo cáo hàng lỗi/thất thoát tại Hub
         group.MapPost("/report-damaged", async (
             ReportDamagedGoodsRequest body, ClaimsPrincipal user, IMediator mediator) =>
         {

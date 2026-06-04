@@ -1,5 +1,7 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using TapHoa.Application.Common;
 using TapHoa.Application.Contracts;
 using TapHoa.Domain.Entities;
@@ -10,9 +12,12 @@ namespace TapHoa.Application.Products.V1.GetProducts;
 
 public class GetProductsQueryHandler(
     IRepository<Product> productRepo,
-    IRepository<Hub> hubRepo)
+    IRepository<Hub> hubRepo,
+    IDistributedCache cache)
     : IRequestHandler<GetProductsQuery, PagedResult<ProductResponse>>
 {
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
+
     public async Task<PagedResult<ProductResponse>> Handle(GetProductsQuery request, CancellationToken cancellationToken)
     {
         // ── Hub validation ─────────────────────────────────────────────────────
@@ -24,6 +29,12 @@ public class GetProductsQueryHandler(
             if (!hubActive)
                 throw new KeyNotFoundException("Hub không tồn tại hoặc đã ngừng hoạt động.");
         }
+
+        // ── Cache ──────────────────────────────────────────────────────────────
+        var cacheKey = GetCacheKey(request);
+        var cached = await CacheHelper.GetAsync<PagedResult<ProductResponse>>(cache, cacheKey, cancellationToken);
+        if (cached is not null)
+            return cached;
 
         // ── Base query ─────────────────────────────────────────────────────────
         var query = productRepo.Query()
@@ -85,13 +96,23 @@ public class GetProductsQueryHandler(
             .Take(request.PageSize)
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<ProductResponse>
+        var result = new PagedResult<ProductResponse>
         {
             Items = items.Select(MapToResponse).ToList(),
             TotalCount = totalCount,
             Page = request.Page,
             PageSize = request.PageSize
         };
+
+        await CacheHelper.SetAsync(cache, cacheKey, result, CacheTtl, cancellationToken);
+        return result;
+    }
+
+    internal static string GetCacheKey(GetProductsQuery query)
+    {
+        var key = $"{query.Search}|{query.CategoryId}|{query.MinPrice}|{query.MaxPrice}|{query.SortBy}|{query.Page}|{query.PageSize}|{query.HubId}|{query.IsNew}|{query.IsDiscount}";
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key));
+        return $"products:list:{Convert.ToHexString(bytes)[..16]}";
     }
 
     internal static ProductResponse MapToResponse(Product p) => new(

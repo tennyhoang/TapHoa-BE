@@ -1,16 +1,25 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using TapHoa.Application.Common;
 using TapHoa.Persistence.Data;
 
 namespace TapHoa.Api.Endpoints.V1.FlashSale;
 
 public static class FlashSaleEndpoints
 {
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(15);
+
     public static void MapFlashSaleEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/flash-sale").WithTags("Flash Sale");
 
-        group.MapGet("/current", async (AppDbContext db) =>
+        group.MapGet("/current", async (AppDbContext db, IDistributedCache cache) =>
         {
+            var cached = await CacheHelper.GetAsync<FlashSaleCurrentResponse>(cache, CacheKeys.FlashSaleCurrent);
+            if (cached is not null)
+                return Results.Ok(cached);
+
             var now = DateTime.UtcNow;
 
             var session = await db.FlashSaleSessions
@@ -24,28 +33,29 @@ public static class FlashSaleEndpoints
             if (session is null)
                 return Results.Ok((object?)null);
 
-            return Results.Ok(new
-            {
-                sessionId = session.Id,
-                name      = session.Name,
-                startTime = session.StartTime,
-                endTime   = session.EndTime,
-                products  = session.Items
+            var result = new FlashSaleCurrentResponse(
+                SessionId: session.Id,
+                Name: session.Name,
+                StartTime: session.StartTime,
+                EndTime: session.EndTime,
+                Products: session.Items
                     .Where(i => i.Product.IsActive)
-                    .Select(i => new
-                    {
-                        id             = i.ProductId,
-                        name           = i.Product.Name,
-                        thumbnailUrl   = i.Product.ThumbnailUrl,
-                        categoryName   = i.Product.Category.Name,
-                        originalPrice  = i.Product.Price,
-                        flashSalePrice = i.FlashSalePrice,
-                        flashSaleStock = i.FlashSaleStock,
-                        soldCount      = i.SoldCount,
-                        stockRemaining = i.FlashSaleStock - i.SoldCount,
-                    })
-                    .ToList(),
-            });
+                    .Select(i => new FlashSaleProductResponse(
+                        Id: i.ProductId,
+                        Name: i.Product.Name,
+                        ThumbnailUrl: i.Product.ThumbnailUrl,
+                        CategoryName: i.Product.Category.Name,
+                        OriginalPrice: i.Product.Price,
+                        FlashSalePrice: i.FlashSalePrice,
+                        FlashSaleStock: i.FlashSaleStock,
+                        SoldCount: i.SoldCount,
+                        StockRemaining: i.FlashSaleStock - i.SoldCount
+                    ))
+                    .ToList()
+            );
+
+            await CacheHelper.SetAsync(cache, CacheKeys.FlashSaleCurrent, result, CacheTtl);
+            return Results.Ok(result);
         });
     }
 }

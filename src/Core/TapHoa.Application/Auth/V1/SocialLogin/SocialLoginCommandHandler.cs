@@ -8,7 +8,10 @@ using TapHoa.Domain.Repositories;
 
 namespace TapHoa.Application.Auth.V1.SocialLogin;
 
-public class SocialLoginCommandHandler(IRepository<User> userRepo, IJwtService jwtService)
+public class SocialLoginCommandHandler(
+    IRepository<User> userRepo,
+    IRepository<RefreshToken> refreshTokenRepo,
+    IJwtService jwtService)
     : IRequestHandler<SocialLoginCommand, LoginResponse>
 {
     public async Task<LoginResponse> Handle(SocialLoginCommand request, CancellationToken cancellationToken)
@@ -39,7 +42,24 @@ public class SocialLoginCommandHandler(IRepository<User> userRepo, IJwtService j
             throw new UnauthorizedAccessException("Tài khoản đã bị vô hiệu hóa.");
         }
 
-        return new LoginResponse(jwtService.GenerateToken(user), user.Email, user.FullName, user.Role.ToString());
+        var refreshTokenEntity = new RefreshToken
+        {
+            UserId = user.Id,
+            Token = jwtService.GenerateRefreshToken(),
+            ExpiresAt = DateTime.UtcNow.AddDays(30),
+        };
+
+        await refreshTokenRepo.AddAsync(refreshTokenEntity);
+        await refreshTokenRepo.SaveChangesAsync();
+
+        return new LoginResponse(
+            jwtService.GenerateToken(user),
+            refreshTokenEntity.Token,
+            user.Email,
+            user.FullName,
+            user.Role.ToString(),
+            user.EmailConfirmed
+        );
     }
 
     // ── Google ────────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Distributed;
 using Moq;
 using TapHoa.Application.Categories.V1.UpdateCategory;
 using TapHoa.Domain.Entities;
@@ -9,11 +10,12 @@ namespace TapHoa.Application.Tests.Categories.V1;
 public class UpdateCategoryCommandHandlerTests
 {
     private readonly Mock<IRepository<Category>> _categoryRepoMock = new();
+    private readonly Mock<IDistributedCache> _cacheMock = new();
     private readonly UpdateCategoryCommandHandler _handler;
 
     public UpdateCategoryCommandHandlerTests()
     {
-        _handler = new UpdateCategoryCommandHandler(_categoryRepoMock.Object);
+        _handler = new UpdateCategoryCommandHandler(_categoryRepoMock.Object, _cacheMock.Object);
     }
 
     [Fact]
