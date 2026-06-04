@@ -13,6 +13,15 @@ public class User : BaseEntity
     public bool IsActive { get; set; } = true;
     public UserRole Role { get; set; } = UserRole.Customer;
 
+    // Email confirmation
+    public bool EmailConfirmed { get; set; }
+    public string? EmailConfirmationToken { get; set; }
+    public DateTime? EmailConfirmationTokenExpiresAt { get; set; }
+
+    // Password reset
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpiresAt { get; set; }
+
     // Agent: Hub được phân công
     public Guid? AgentHubId { get; set; }
 
@@ -34,6 +43,7 @@ public class User : BaseEntity
     public ICollection<Review> Reviews { get; set; } = [];
     public ICollection<UserHub> UserHubs { get; set; } = [];
     public ICollection<WalletTransaction> WalletTransactions { get; set; } = [];
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
 
     public void CreditWallet(decimal amount)
     {

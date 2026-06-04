@@ -5,4 +5,6 @@ namespace TapHoa.Application.Contracts;
 public interface IJwtService
 {
     string GenerateToken(User user);
+    string GenerateRefreshToken();
+    Guid? ValidateRefreshToken(string refreshToken);
 }

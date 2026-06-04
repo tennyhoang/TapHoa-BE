@@ -32,5 +32,14 @@ services:
       RABBITMQ_DEFAULT_USER: taphoa
       RABBITMQ_DEFAULT_PASS: taphoa_pass
 
+  redis:
+    image: redis:7-alpine
+    container_name: taphoa_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
 volumes:
   postgres_data:
+  redis_data:

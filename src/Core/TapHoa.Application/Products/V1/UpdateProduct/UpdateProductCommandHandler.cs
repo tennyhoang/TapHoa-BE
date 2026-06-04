@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Repositories;
 
@@ -8,7 +9,8 @@ namespace TapHoa.Application.Products.V1.UpdateProduct;
 public class UpdateProductCommandHandler(
     IRepository<Product> productRepo,
     IRepository<Category> categoryRepo,
-    IRepository<ProductImage> imageRepo)
+    IRepository<ProductImage> imageRepo,
+    IDistributedCache cache)
     : IRequestHandler<UpdateProductCommand, ProductResponse>
 {
     public async Task<ProductResponse> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
@@ -48,6 +50,7 @@ public class UpdateProductCommandHandler(
             .Include(p => p.Reviews)
             .FirstAsync(p => p.Id == product.Id, cancellationToken);
 
+        await cache.RemoveAsync($"products:single:{product.Id}", cancellationToken);
         return GetProducts.GetProductsQueryHandler.MapToResponse(updated);
     }
 }

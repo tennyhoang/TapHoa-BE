@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Repositories;
 
@@ -7,7 +8,8 @@ namespace TapHoa.Application.Products.V1.CreateProduct;
 
 public class CreateProductCommandHandler(
     IRepository<Product> productRepo,
-    IRepository<Category> categoryRepo)
+    IRepository<Category> categoryRepo,
+    IDistributedCache cache)
     : IRequestHandler<CreateProductCommand, ProductResponse>
 {
     public async Task<ProductResponse> Handle(CreateProductCommand request, CancellationToken cancellationToken)
@@ -40,6 +42,8 @@ public class CreateProductCommandHandler(
             .Include(p => p.Reviews)
             .FirstAsync(p => p.Id == product.Id, cancellationToken);
 
-        return GetProducts.GetProductsQueryHandler.MapToResponse(created);
+        var result = GetProducts.GetProductsQueryHandler.MapToResponse(created);
+        await cache.RemoveAsync($"products:single:{product.Id}", cancellationToken);
+        return result;
     }
 }

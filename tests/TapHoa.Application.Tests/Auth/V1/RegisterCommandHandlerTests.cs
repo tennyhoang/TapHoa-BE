@@ -10,12 +10,15 @@ namespace TapHoa.Application.Tests.Auth.V1;
 public class RegisterCommandHandlerTests
 {
     private readonly Mock<IRepository<User>> _userRepoMock = new();
+    private readonly Mock<IRepository<RefreshToken>> _refreshTokenRepoMock = new();
     private readonly Mock<IJwtService> _jwtServiceMock = new();
+    private readonly Mock<IEmailService> _emailServiceMock = new();
     private readonly RegisterCommandHandler _handler;
 
     public RegisterCommandHandlerTests()
     {
-        _handler = new RegisterCommandHandler(_userRepoMock.Object, _jwtServiceMock.Object);
+        _handler = new RegisterCommandHandler(
+            _userRepoMock.Object, _refreshTokenRepoMock.Object, _jwtServiceMock.Object, _emailServiceMock.Object);
     }
 
     [Fact]

@@ -27,15 +27,24 @@ public static class InfrastructureExtension
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IJwtService, JwtService>();
+        services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IReviewModerationService, GroqModerationService>();
         services.AddScoped<IRouteOptimizationService, OpenRouteOptimizationService>();
 
-        // Cloudinary — đọc từ appsettings hoặc env vars (Cloudinary__CloudName, ...)
         services.Configure<CloudinarySettings>(configuration.GetSection("Cloudinary"));
         services.AddScoped<ICloudinaryService, CloudinaryService>();
 
-        // SePay — đọc từ appsettings hoặc env var SePay__ApiKey
         services.Configure<SepayOptions>(configuration.GetSection(SepayOptions.Section));
+
+        var redisConn = configuration["Redis:ConnectionString"];
+        if (!string.IsNullOrWhiteSpace(redisConn))
+        {
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = redisConn;
+                options.InstanceName = "TapHoa:";
+            });
+        }
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

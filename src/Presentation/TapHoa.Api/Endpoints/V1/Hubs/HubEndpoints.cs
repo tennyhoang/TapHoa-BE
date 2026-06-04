@@ -19,7 +19,6 @@ public static class HubEndpoints
         group.MapGet("/", async (IMediator mediator, string? city, string? district) =>
             Results.Ok(await mediator.Send(new GetActiveHubsQuery(city, district))));
 
-        // Admin: xem toàn bộ Hub (có phân trang + filter)
         group.MapGet("/all", async (
             IMediator mediator,
             int page = 1, int pageSize = 20,
@@ -28,7 +27,6 @@ public static class HubEndpoints
             Results.Ok(await mediator.Send(new GetAllHubsQuery(page, pageSize, status, city, district, search)))
         ).RequireAuthorization("Admin");
 
-        // Admin: tạo Hub mới
         group.MapPost("/", async (CreateHubCommand command, IMediator mediator) =>
         {
             var result = await mediator.Send(command);
@@ -37,7 +35,6 @@ public static class HubEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         }).RequireAuthorization("Admin");
 
-        // Admin: sửa thông tin Hub
         group.MapPut("/{id:guid}", async (Guid id, UpdateHubRequest body, IMediator mediator) =>
         {
             var result = await mediator.Send(new UpdateHubCommand(
@@ -48,7 +45,6 @@ public static class HubEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         }).RequireAuthorization("Admin");
 
-        // Admin: bật / tắt Hub
         group.MapPatch("/{id:guid}/status", async (Guid id, UpdateStatusRequest body, IMediator mediator) =>
         {
             var result = await mediator.Send(new UpdateHubStatusCommand(id, body.Status));
@@ -68,7 +64,6 @@ public static class HubEndpoints
                     : Results.Conflict(new { result.Error, result.ErrorCode });
         }).RequireAuthorization("Admin");
 
-        // Admin/Kho: cập nhật tồn kho sản phẩm tại một Hub cụ thể
         group.MapPut("/{hubId:guid}/inventory/{productId:guid}", async (
             Guid hubId, Guid productId, UpdateStockRequest body, IMediator mediator) =>
         {

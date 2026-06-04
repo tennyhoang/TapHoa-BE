@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using TapHoa.Application.Common;
 using TapHoa.Domain.Entities;
 using TapHoa.Persistence.Data;
 
@@ -7,6 +9,12 @@ namespace TapHoa.Api.Endpoints.V1.Admin;
 
 public static class AdminFlashSaleEndpoints
 {
+    private static async Task EvictFlashSaleCache(HttpContext context)
+    {
+        var cache = context.RequestServices.GetRequiredService<IDistributedCache>();
+        await cache.RemoveAsync(CacheKeys.FlashSaleCurrent);
+    }
+
     public static void MapAdminFlashSaleEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/admin/flash-sale")
@@ -28,7 +36,7 @@ public static class AdminFlashSaleEndpoints
             return Results.Ok(sessions);
         });
 
-        group.MapPost("/", async ([FromBody] CreateFlashSaleSessionRequest req, AppDbContext db) =>
+        group.MapPost("/", async (HttpContext context, [FromBody] CreateFlashSaleSessionRequest req, AppDbContext db) =>
         {
             var session = new FlashSaleSession
             {
@@ -40,28 +48,31 @@ public static class AdminFlashSaleEndpoints
 
             db.FlashSaleSessions.Add(session);
             await db.SaveChangesAsync();
+            await EvictFlashSaleCache(context);
 
             return Results.Ok(new { session.Id });
         });
 
-        group.MapPatch("/{id:guid}/toggle", async (Guid id, AppDbContext db) =>
+        group.MapPatch("/{id:guid}/toggle", async (HttpContext context, Guid id, AppDbContext db) =>
         {
             var session = await db.FlashSaleSessions.FindAsync(id);
             if (session is null) return Results.NotFound();
 
             session.IsActive = !session.IsActive;
             await db.SaveChangesAsync();
+            await EvictFlashSaleCache(context);
 
             return Results.Ok(new { session.IsActive });
         });
 
-        group.MapDelete("/{id:guid}", async (Guid id, AppDbContext db) =>
+        group.MapDelete("/{id:guid}", async (HttpContext context, Guid id, AppDbContext db) =>
         {
             var session = await db.FlashSaleSessions.FindAsync(id);
             if (session is null) return Results.NotFound();
 
             db.FlashSaleSessions.Remove(session);
             await db.SaveChangesAsync();
+            await EvictFlashSaleCache(context);
 
             return Results.NoContent();
         });
@@ -88,6 +99,7 @@ public static class AdminFlashSaleEndpoints
         });
 
         group.MapPost("/{id:guid}/items", async (
+            HttpContext context,
             Guid id,
             [FromBody] AddFlashSaleItemRequest req,
             AppDbContext db) =>
@@ -115,11 +127,12 @@ public static class AdminFlashSaleEndpoints
 
             db.FlashSaleItems.Add(item);
             await db.SaveChangesAsync();
+            await EvictFlashSaleCache(context);
 
             return Results.Ok(new { item.Id });
         });
 
-        group.MapDelete("/{id:guid}/items/{itemId:guid}", async (Guid id, Guid itemId, AppDbContext db) =>
+        group.MapDelete("/{id:guid}/items/{itemId:guid}", async (HttpContext context, Guid id, Guid itemId, AppDbContext db) =>
         {
             var item = await db.FlashSaleItems
                 .FirstOrDefaultAsync(i => i.Id == itemId && i.FlashSaleSessionId == id);
@@ -128,11 +141,13 @@ public static class AdminFlashSaleEndpoints
 
             db.FlashSaleItems.Remove(item);
             await db.SaveChangesAsync();
+            await EvictFlashSaleCache(context);
 
             return Results.NoContent();
         });
 
         group.MapPost("/{id:guid}/items/bulk", async (
+            HttpContext context,
             Guid id,
             [FromBody] BulkAddFlashSaleItemsRequest req,
             AppDbContext db) =>
@@ -167,6 +182,8 @@ public static class AdminFlashSaleEndpoints
                 db.FlashSaleItems.AddRange(toAdd);
                 await db.SaveChangesAsync();
             }
+
+            await EvictFlashSaleCache(context);
 
             return Results.Ok(new { added = toAdd.Count, skipped = req.Items.Count - toAdd.Count });
         });

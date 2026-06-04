@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Distributed;
 using MockQueryable.Moq;
 using Moq;
 using TapHoa.Application.Products.V1.CreateProduct;
@@ -11,11 +12,12 @@ public class CreateProductCommandHandlerTests
 {
     private readonly Mock<IRepository<Product>> _productRepoMock = new();
     private readonly Mock<IRepository<Category>> _categoryRepoMock = new();
+    private readonly Mock<IDistributedCache> _cacheMock = new();
     private readonly CreateProductCommandHandler _handler;
 
     public CreateProductCommandHandlerTests()
     {
-        _handler = new CreateProductCommandHandler(_productRepoMock.Object, _categoryRepoMock.Object);
+        _handler = new CreateProductCommandHandler(_productRepoMock.Object, _categoryRepoMock.Object, _cacheMock.Object);
     }
 
     [Fact]

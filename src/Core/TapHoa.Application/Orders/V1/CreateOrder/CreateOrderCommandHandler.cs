@@ -16,11 +16,9 @@ public class CreateOrderCommandHandler(
 {
     public async Task<OrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
     {
-        // ── Validate Hub ───────────────────────────────────────────────────────
         var hub = await hubRepo.FindAsync(h => h.Id == request.HubId && h.Status == HubStatus.Active)
             ?? throw new KeyNotFoundException("Điểm nhận hàng (Hub) không tồn tại hoặc đã ngừng hoạt động.");
 
-        // ── Validate cart ──────────────────────────────────────────────────────
         var cartItems = await cartRepo.Query()
             .Include(c => c.Product)
             .Where(c => c.UserId == request.UserId)
@@ -46,7 +44,6 @@ public class CreateOrderCommandHandler(
         foreach (var item in cartItems)
             item.Product.Stock -= item.Quantity;
 
-        // ── Build order ────────────────────────────────────────────────────────
         var orderItems = cartItems.Select(c => new OrderItem
         {
             ProductId = c.ProductId,
@@ -59,7 +56,6 @@ public class CreateOrderCommandHandler(
         var isCod        = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
         var isWallet     = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
 
-        // ── Wallet deduction (full or partial) ─────────────────────────────────
         User? buyer = null;
         decimal walletAmountUsed = 0;
 
