@@ -1,10 +1,14 @@
 using MediatR;
+using Microsoft.Extensions.Caching.Distributed;
+using TapHoa.Application.Common;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Repositories;
 
 namespace TapHoa.Application.Categories.V1.UpdateCategory;
 
-public class UpdateCategoryCommandHandler(IRepository<Category> categoryRepo)
+public class UpdateCategoryCommandHandler(
+    IRepository<Category> categoryRepo,
+    IDistributedCache cache)
     : IRequestHandler<UpdateCategoryCommand, CategoryResponse>
 {
     public async Task<CategoryResponse> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
@@ -19,6 +23,7 @@ public class UpdateCategoryCommandHandler(IRepository<Category> categoryRepo)
         categoryRepo.Update(category);
         await categoryRepo.SaveChangesAsync();
 
+        await cache.RemoveAsync(CacheKeys.CategoriesAll);
         return GetCategories.GetCategoriesQueryHandler.MapToResponse(category);
     }
 }

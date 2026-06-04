@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Distributed;
 using MockQueryable.Moq;
 using Moq;
 using TapHoa.Application.Categories.V1.GetCategories;
@@ -10,11 +11,12 @@ namespace TapHoa.Application.Tests.Categories.V1;
 public class GetCategoriesQueryHandlerTests
 {
     private readonly Mock<IRepository<Category>> _categoryRepoMock = new();
+    private readonly Mock<IDistributedCache> _cacheMock = new();
     private readonly GetCategoriesQueryHandler _handler;
 
     public GetCategoriesQueryHandlerTests()
     {
-        _handler = new GetCategoriesQueryHandler(_categoryRepoMock.Object);
+        _handler = new GetCategoriesQueryHandler(_categoryRepoMock.Object, _cacheMock.Object);
     }
 
     [Fact]

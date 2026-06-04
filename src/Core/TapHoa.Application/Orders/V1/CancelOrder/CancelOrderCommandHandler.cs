@@ -34,7 +34,6 @@ public class CancelOrderCommandHandler(
 
         foreach (var item in order.Items)
         {
-            // Hoàn kho toàn cục
             item.Product.Stock += item.Quantity;
             productRepo.Update(item.Product);
 

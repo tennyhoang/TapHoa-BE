@@ -48,7 +48,7 @@ public class CancelOrderCommandHandlerTests
         var orderId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         var product = new Product { Name = "Phone", Stock = 5 };
-        var order = BuildOrder(OrderStatus.Pending, userId, orderId);
+        var order = BuildOrder(OrderStatus.PendingPayment, userId, orderId);
         order.Items = [new OrderItem { Product = product, Quantity = 2, UnitPrice = 1000 }];
 
         _orderRepoMock.Setup(r => r.Query()).Returns(new List<Order> { order }.BuildMockDbSet().Object);
@@ -66,7 +66,7 @@ public class CancelOrderCommandHandlerTests
     {
         var orderId = Guid.NewGuid();
         var userId = Guid.NewGuid();
-        var order = BuildOrder(OrderStatus.Confirmed, userId, orderId);
+        var order = BuildOrder(OrderStatus.ShippingToHub, userId, orderId);
         _orderRepoMock.Setup(r => r.Query()).Returns(new List<Order> { order }.BuildMockDbSet().Object);
 
         var result = await _handler.Handle(new CancelOrderCommand(orderId, userId), CancellationToken.None);

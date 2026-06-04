@@ -1,8 +1,14 @@
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
-using NLog;
-using NLog.Web;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
+using Serilog;
 using Scalar.AspNetCore;
 using TapHoa.Api.BackgroundJobs;
 using TapHoa.Api.Endpoints.V1.Admin;
@@ -30,11 +36,15 @@ using TapHoa.Infrastructure;
 using TapHoa.Persistence;
 using TapHoa.Persistence.Data;
 
-var logger = LogManager.Setup().LoadConfigurationFromFile("nlog.config").GetCurrentClassLogger();
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
 try
 {
-    logger.Info("Starting TapHoa API");
+    Log.Information("Starting TapHoa API");
 
     var builder = WebApplication.CreateBuilder(args);
 
@@ -47,8 +57,17 @@ try
         // 3. Environment variables — ưu tiên cao nhất, inject Jwt__Key / ConnectionStrings__DefaultConnection trên Render
         .AddEnvironmentVariables();
 
-    builder.Logging.ClearProviders();
-    builder.Host.UseNLog();
+    builder.Host.UseSerilog((ctx, services, cfg) =>
+        cfg.ReadFrom.Configuration(ctx.Configuration)
+           .ReadFrom.Services(services)
+           .Enrich.FromLogContext());
+
+    builder.Services.AddApiVersioning(options =>
+    {
+        options.DefaultApiVersion = new Asp.Versioning.ApiVersion(1, 0);
+        options.AssumeDefaultVersionWhenUnspecified = true;
+        options.ReportApiVersions = true;
+    });
 
     builder.Services.AddOpenApi();
     builder.Services.AddHttpClient("groq");
@@ -56,7 +75,7 @@ try
     builder.Services.AddHttpClient("nominatim", c =>
     {
         // Nominatim ToS: User-Agent bắt buộc
-        var contactEmail = builder.Configuration["Nominatim:ContactEmail"] ?? "support@taphoa.vn";
+        var contactEmail = builder.Configuration["Nominatim:ContactEmail"];
         c.DefaultRequestHeaders.UserAgent.ParseAdd($"TapHoa/1.0 ({contactEmail})");
         c.Timeout = TimeSpan.FromSeconds(10);
     });
@@ -65,6 +84,28 @@ try
         c.Timeout = TimeSpan.FromSeconds(30);
     });
     builder.Services.AddHostedService<NightBatchJob>();
+
+    // ── Health Checks ─────────────────────────────────────────────────────────
+    var connStr   = builder.Configuration.GetConnectionString("DefaultConnection")!;
+    var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(connStr,       name: "database", tags: ["db",    "ready"])
+        .AddRedis(redisConn,      name: "redis",    tags: ["cache", "ready"]);
+
+    // ── OpenTelemetry ─────────────────────────────────────────────────────────
+    var otlpEndpoint = builder.Configuration["OpenTelemetry:Endpoint"] ?? "http://localhost:4317";
+    var serviceName  = builder.Configuration["OpenTelemetry:ServiceName"] ?? "taphoa-api";
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(r => r.AddService(serviceName))
+        .WithTracing(tracing => tracing
+            .AddAspNetCoreInstrumentation(o => o.RecordException = true)
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)))
+        .WithMetrics(metrics => metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)));
+
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddPersistence(builder.Configuration);
@@ -91,19 +132,36 @@ try
         });
     });
 
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.AddFixedWindowLimiter("AuthPolicy", opt =>
+        {
+            opt.PermitLimit = 10;
+            opt.Window = TimeSpan.FromMinutes(1);
+            opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+            opt.QueueLimit = 2;
+        });
+
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    });
+
     var app = builder.Build();
 
-    // Tự động apply pending migrations và seed dữ liệu mẫu khi DB còn trống.
+    // Auto-migrate CHỈ ở Development. Production/Staging: chạy tay qua CI/CD
+    //   dotnet ef database update --project src/Infrastructure/TapHoa.Persistence
     using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await db.Database.MigrateAsync();
+        if (app.Environment.IsDevelopment())
+            await db.Database.MigrateAsync();
         await DataSeeder.SeedAsync(db);
     }
 
     Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "storage", "uploads"));
 
+    app.UseSerilogRequestLogging();
     app.UseMiddleware<ExceptionHandlingMiddleware>();
+    app.UseMiddleware<AuditLoggingMiddleware>();
     app.UseStaticFiles();
     app.UseStaticFiles(new StaticFileOptions
     {
@@ -112,8 +170,9 @@ try
         RequestPath = "/storage"
     });
     app.UseCors();
+    app.UseRateLimiter();
 
-    if (app.Environment.IsDevelopment())
+    if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Staging"))
     {
         app.MapOpenApi();
         app.MapScalarApiReference(options =>
@@ -121,11 +180,38 @@ try
             options.Title = "TapHoa API";
             options.WithPreferredScheme("Bearer");
             options.WithHttpBearerAuthentication(bearer => bearer.Token = string.Empty);
-        });
+        }).RequireAuthorization();  // Staging phải có JWT token để truy cập docs
     }
 
     app.UseAuthentication();
     app.UseAuthorization();
+
+    // ── Health Check endpoint ─────────────────────────────────────────────────
+    app.MapHealthChecks("/health", new HealthCheckOptions
+    {
+        ResponseWriter = async (ctx, report) =>
+        {
+            ctx.Response.ContentType = "application/json";
+            await ctx.Response.WriteAsJsonAsync(new
+            {
+                status       = report.Status.ToString(),
+                checks       = report.Entries.Select(e => new
+                {
+                    name        = e.Key,
+                    status      = e.Value.Status.ToString(),
+                    description = e.Value.Description,
+                    durationMs  = e.Value.Duration.TotalMilliseconds,
+                }),
+                totalDurationMs = report.TotalDuration.TotalMilliseconds,
+            });
+        },
+        ResultStatusCodes =
+        {
+            [HealthStatus.Healthy]   = StatusCodes.Status200OK,
+            [HealthStatus.Degraded]  = StatusCodes.Status200OK,
+            [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable,
+        },
+    }).AllowAnonymous();
 
     app.MapArticleEndpoints();
     app.MapFlashSaleEndpoints();
@@ -157,10 +243,10 @@ try
 }
 catch (Exception ex)
 {
-    logger.Error(ex, "Application stopped due to exception");
+    Log.Fatal(ex, "Application terminated unexpectedly");
     throw;
 }
 finally
 {
-    LogManager.Shutdown();
+    Log.CloseAndFlush();
 }

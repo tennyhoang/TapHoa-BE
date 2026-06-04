@@ -1,4 +1,6 @@
 using MediatR;
+using Microsoft.Extensions.Caching.Distributed;
+using TapHoa.Application.Common;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Repositories;
 
@@ -6,7 +8,8 @@ namespace TapHoa.Application.Categories.V1.DeleteCategory;
 
 public class DeleteCategoryCommandHandler(
     IRepository<Category> categoryRepo,
-    IRepository<Product> productRepo)
+    IRepository<Product> productRepo,
+    IDistributedCache cache)
     : IRequestHandler<DeleteCategoryCommand>
 {
     public async Task Handle(DeleteCategoryCommand request, CancellationToken cancellationToken)
@@ -22,5 +25,7 @@ public class DeleteCategoryCommandHandler(
 
         categoryRepo.Remove(category);
         await categoryRepo.SaveChangesAsync();
+
+        await cache.RemoveAsync(CacheKeys.CategoriesAll);
     }
 }

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Distributed;
 using Moq;
 using TapHoa.Application.Products.V1.DeleteProduct;
 using TapHoa.Domain.Entities;
@@ -9,11 +10,12 @@ namespace TapHoa.Application.Tests.Products.V1;
 public class DeleteProductCommandHandlerTests
 {
     private readonly Mock<IRepository<Product>> _productRepoMock = new();
+    private readonly Mock<IDistributedCache> _cacheMock = new();
     private readonly DeleteProductCommandHandler _handler;
 
     public DeleteProductCommandHandlerTests()
     {
-        _handler = new DeleteProductCommandHandler(_productRepoMock.Object);
+        _handler = new DeleteProductCommandHandler(_productRepoMock.Object, _cacheMock.Object);
     }
 
     [Fact]

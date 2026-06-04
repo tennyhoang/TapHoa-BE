@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Distributed;
 using Moq;
 using TapHoa.Application.Categories.V1.DeleteCategory;
 using TapHoa.Domain.Entities;
@@ -10,11 +11,12 @@ public class DeleteCategoryCommandHandlerTests
 {
     private readonly Mock<IRepository<Category>> _categoryRepoMock = new();
     private readonly Mock<IRepository<Product>> _productRepoMock = new();
+    private readonly Mock<IDistributedCache> _cacheMock = new();
     private readonly DeleteCategoryCommandHandler _handler;
 
     public DeleteCategoryCommandHandlerTests()
     {
-        _handler = new DeleteCategoryCommandHandler(_categoryRepoMock.Object, _productRepoMock.Object);
+        _handler = new DeleteCategoryCommandHandler(_categoryRepoMock.Object, _productRepoMock.Object, _cacheMock.Object);
     }
 
     [Fact]

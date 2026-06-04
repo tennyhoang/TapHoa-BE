@@ -106,15 +106,31 @@ jobs:
         run: dotnet build --no-restore -c Release
 
       - name: Run tests
-        run: dotnet test --no-build -c Release --verbosity normal
+        run: |
+          dotnet test --no-build -c Release --verbosity normal \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults \
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-${{ github.sha }}
-          path: '**/TestResults/*.trx'
+          path: |
+            '**/TestResults/*.trx'
+            TestResults/**/coverage.cobertura.xml
           retention-days: 7
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(grep -oP 'line-rate="\K[^"]+' TestResults/**/coverage.cobertura.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
+          echo "Line coverage: ${COVERAGE}%"
+          if [ "${COVERAGE}" -lt 60 ]; then
+            echo "❌ Coverage ${COVERAGE}% is below minimum threshold of 60%"
+            exit 1
+          fi
+          echo "✅ Coverage ${COVERAGE}% meets threshold"
 
 
   # ===========================================================================
