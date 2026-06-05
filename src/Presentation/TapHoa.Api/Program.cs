@@ -18,6 +18,7 @@ using TapHoa.Api.Endpoints.V1.Agent;
 using TapHoa.Api.Endpoints.V1.Addresses;
 using TapHoa.Api.Endpoints.V1.Claims;
 using TapHoa.Api.Endpoints.V1.Driver;
+using TapHoa.Api.Endpoints.V1.WarehouseManager;
 using TapHoa.Api.Endpoints.V1.Hubs;
 using TapHoa.Api.Endpoints.V1.Auth;
 using TapHoa.Api.Endpoints.V1.Cart;
@@ -238,6 +239,7 @@ try
     app.MapWalletEndpoints();
     app.MapWarehouseEndpoints();
     app.MapAdminWarehouseEndpoints();
+    app.MapWarehouseManagerEndpoints();
 
     app.Run();
 }

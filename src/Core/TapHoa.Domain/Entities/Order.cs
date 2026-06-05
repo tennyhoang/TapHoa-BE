@@ -15,6 +15,7 @@ public class Order : BaseEntity
     public string? PaymentRef { get; set; }          // Mã tham chiếu chuyển khoản, e.g. TH2685894A
     public decimal WalletAmountUsed { get; set; } = 0; // Số tiền đã trừ từ ví (0 nếu không dùng ví)
     public DateTime? PaidAt { get; private set; }
+    public DateTime? PackedAtWarehouseAt { get; private set; }
     public DateTime? ShippingToHubAt { get; private set; }
     public DateTime? InHubAt { get; private set; }
     public DateTime? CompletedAt { get; private set; }
@@ -40,11 +41,21 @@ public class Order : BaseEntity
         PaidAt = DateTime.UtcNow;
     }
 
-    // Driver nhận lô gom đêm → bắt đầu giao đến Hub
-    public void StartShipping()
+    // Quản lý kho xác nhận đã đóng gói xong
+    public void PackAtWarehouse()
     {
         GuardTerminal();
         if (Status != OrderStatus.Paid_WaitingForBatch)
+            throw new OrderDomainException($"Chỉ có thể đóng gói đơn đang chờ xử lý (trạng thái hiện tại: '{Status}').");
+        Status = OrderStatus.PackedAtWarehouse;
+        PackedAtWarehouseAt = DateTime.UtcNow;
+    }
+
+    // Driver nhận lô từ kho → bắt đầu giao đến Hub
+    public void StartShipping()
+    {
+        GuardTerminal();
+        if (Status != OrderStatus.Paid_WaitingForBatch && Status != OrderStatus.PackedAtWarehouse)
             throw new OrderDomainException($"Không thể bắt đầu giao khi đơn hàng ở trạng thái '{Status}'.");
         Status = OrderStatus.ShippingToHub;
         ShippingToHubAt = DateTime.UtcNow;
