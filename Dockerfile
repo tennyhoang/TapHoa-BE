@@ -32,9 +32,6 @@ EXPOSE 8080
 
 COPY --from=build /app/publish .
 
-# nlog.config không được dotnet publish copy mặc định — copy thủ công
-COPY --from=build /src/src/Presentation/TapHoa.Api/nlog.config ./nlog.config
-
 # Thư mục lưu file upload (Program.cs gọi Directory.CreateDirectory khi start,
 # nhưng tạo sẵn đảm bảo quyền ghi đúng trong container)
 RUN mkdir -p storage/uploads
