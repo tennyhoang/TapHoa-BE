@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TapHoa.Application.Common;
+using TapHoa.Application.Contracts;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Enums;
 using TapHoa.Application.Orders.V1.Events;
@@ -12,6 +13,7 @@ namespace TapHoa.Application.Orders.V1.UpdateOrderStatus;
 public class UpdateOrderStatusCommandHandler(
     IRepository<Order> orderRepo,
     IHubInventoryRepository inventoryRepo,
+    IOrderTrackingService orderTracking,
     IPublisher publisher)
     : IRequestHandler<UpdateOrderStatusCommand, Result<OrderResponse>>
 {
@@ -58,6 +60,10 @@ public class UpdateOrderStatusCommandHandler(
 
         // Entity đã được tracked — change tracker tự phát hiện mutation, không cần gọi Update().
         await orderRepo.SaveChangesAsync();
+
+        // Notify real-time via SignalR for all status changes
+        await orderTracking.NotifyOrderStatusChangedAsync(
+            order.UserId, order.Id, order.Status.ToString(), cancellationToken);
 
         if (order.Status == OrderStatus.InHub_ReadyForPickup)
         {
