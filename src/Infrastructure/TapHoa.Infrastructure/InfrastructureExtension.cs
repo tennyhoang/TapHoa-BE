@@ -8,6 +8,7 @@ using TapHoa.Application.Contracts;
 using TapHoa.Infrastructure.Auth;
 using TapHoa.Infrastructure.Cloudinary;
 using TapHoa.Infrastructure.Moderation;
+using TapHoa.Infrastructure.Notifications;
 using TapHoa.Infrastructure.Payment;
 using TapHoa.Infrastructure.RouteOptimization;
 
@@ -30,6 +31,7 @@ public static class InfrastructureExtension
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IReviewModerationService, GroqModerationService>();
         services.AddScoped<IRouteOptimizationService, OpenRouteOptimizationService>();
+        services.AddScoped<IExpoPushService, ExpoPushService>();
 
         services.Configure<CloudinarySettings>(configuration.GetSection("Cloudinary"));
         services.AddScoped<ICloudinaryService, CloudinaryService>();
@@ -61,6 +63,21 @@ public static class InfrastructureExtension
                         Encoding.UTF8.GetBytes(jwtKey)),
                     RoleClaimType = ClaimTypes.Role,
                     NameClaimType = "unique_name"
+                };
+
+                // Allow SignalR hubs to receive JWT from query string
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        if (!string.IsNullOrEmpty(accessToken) &&
+                            context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
                 };
             });
 
