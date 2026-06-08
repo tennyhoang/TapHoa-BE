@@ -14,6 +14,7 @@ public class Order : BaseEntity
     public string? CancelReason { get; private set; }
     public string? PaymentRef { get; set; }          // Mã tham chiếu chuyển khoản, e.g. TH2685894A
     public decimal WalletAmountUsed { get; set; } = 0; // Số tiền đã trừ từ ví (0 nếu không dùng ví)
+    public string? DeliveryPhotoUrl { get; private set; }
     public DateTime? PaidAt { get; private set; }
     public DateTime? PackedAtWarehouseAt { get; private set; }
     public DateTime? ShippingToHubAt { get; private set; }
@@ -98,6 +99,13 @@ public class Order : BaseEntity
             throw new OrderDomainException($"Chỉ có thể hoàn tiền đơn hàng đã hoàn thành (trạng thái hiện tại: '{Status}').");
         Status = OrderStatus.Refunded;
         RefundedAt = DateTime.UtcNow;
+    }
+
+    public void SetDeliveryPhoto(string photoUrl)
+    {
+        if (Status is not (OrderStatus.ShippingToHub or OrderStatus.InHub_ReadyForPickup or OrderStatus.Completed))
+            throw new OrderDomainException("Chỉ có thể thêm ảnh giao hàng khi đơn đang vận chuyển hoặc đã đến Hub.");
+        DeliveryPhotoUrl = photoUrl;
     }
 
     private void GuardTerminal()
