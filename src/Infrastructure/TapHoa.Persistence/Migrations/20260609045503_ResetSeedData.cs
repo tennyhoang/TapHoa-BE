@@ -11,13 +11,15 @@ namespace TapHoa.Persistence.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
-TRUNCATE TABLE
+DO $$
+BEGIN
+  TRUNCATE TABLE
     ""UserNotifications"",
     ""PushTokens"",
     ""RefreshTokens"",
     ""WalletTransactions"",
     ""WalletTopupRequests"",
-    ""WalletWithdrawRequests"",
+    ""WithdrawRequests"",
     ""CartItems"",
     ""OrderItems"",
     ""Orders"",
@@ -34,7 +36,10 @@ TRUNCATE TABLE
     ""Hubs"",
     ""Warehouses"",
     ""Users""
-CASCADE;
+  CASCADE;
+EXCEPTION WHEN others THEN
+  NULL;
+END $$;
 ");
         }
 
