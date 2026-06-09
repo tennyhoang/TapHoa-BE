@@ -18,18 +18,31 @@ public static class CacheHelper
 
     public static async Task<T?> GetAsync<T>(IDistributedCache cache, string key, CancellationToken ct = default) where T : class
     {
-        var bytes = await cache.GetAsync(key, ct);
-        if (bytes is null || bytes.Length == 0)
+        try
+        {
+            var bytes = await cache.GetAsync(key, ct);
+            if (bytes is null || bytes.Length == 0) return null;
+            return JsonSerializer.Deserialize<T>(bytes, JsonOptions);
+        }
+        catch
+        {
             return null;
-        return JsonSerializer.Deserialize<T>(bytes, JsonOptions);
+        }
     }
 
-    public static Task SetAsync<T>(IDistributedCache cache, string key, T value, TimeSpan ttl, CancellationToken ct = default)
+    public static async Task SetAsync<T>(IDistributedCache cache, string key, T value, TimeSpan ttl, CancellationToken ct = default)
     {
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(value, JsonOptions);
-        return cache.SetAsync(key, bytes, new DistributedCacheEntryOptions
+        try
         {
-            AbsoluteExpirationRelativeToNow = ttl
-        }, ct);
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(value, JsonOptions);
+            await cache.SetAsync(key, bytes, new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = ttl
+            }, ct);
+        }
+        catch
+        {
+            // Redis unavailable — skip caching, serve from DB
+        }
     }
 }
