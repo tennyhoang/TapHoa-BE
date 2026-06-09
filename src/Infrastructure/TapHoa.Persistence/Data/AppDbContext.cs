@@ -40,21 +40,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(u => u.FullName).HasMaxLength(200);
             e.Property(u => u.Email).HasMaxLength(256);
 
-            // Agent: Hub được phân công (null với Customer/Admin/Driver/WarehouseManager)
             e.HasOne<Hub>()
              .WithMany()
              .HasForeignKey(u => u.AgentHubId)
              .OnDelete(DeleteBehavior.SetNull)
              .IsRequired(false);
 
-            // Driver: kho xuất phát cố định
             e.HasOne(u => u.AssignedWarehouse)
              .WithMany(w => w.AssignedDrivers)
              .HasForeignKey(u => u.WarehouseId)
              .OnDelete(DeleteBehavior.SetNull)
              .IsRequired(false);
 
-            // WarehouseManager: kho phụ trách
             e.HasOne(u => u.ManagedWarehouse)
              .WithMany()
              .HasForeignKey(u => u.ManagedWarehouseId)
@@ -74,6 +71,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(o => o.WalletAmountUsed).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             e.Property(o => o.Status).HasConversion<string>();
             e.Property(o => o.CancelReason).HasMaxLength(500);
+            e.Property(o => o.DeliveryPhotoUrl).HasMaxLength(2048);
         });
 
         modelBuilder.Entity<OrderItem>(e =>
@@ -101,13 +99,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(h => h.City).HasMaxLength(100).IsRequired();
             e.Property(h => h.Status).HasConversion<string>();
 
-            // Một Hub có nhiều Order; xóa Hub không được khi vẫn còn Order
             e.HasMany(h => h.Orders)
              .WithOne(o => o.Hub)
              .HasForeignKey(o => o.HubId)
              .OnDelete(DeleteBehavior.Restrict);
 
-            // Một Hub có nhiều UserHub (favorites); xóa Hub thì xóa luôn favorites
             e.HasMany(h => h.UserHubs)
              .WithOne(uh => uh.Hub)
              .HasForeignKey(uh => uh.HubId)
@@ -116,15 +112,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<UserHub>(e =>
         {
-            // Mỗi cặp (UserId, HubId) là duy nhất — một Customer chỉ lưu một Hub một lần
             e.HasIndex(uh => new { uh.UserId, uh.HubId }).IsUnique();
 
             e.HasOne(uh => uh.User)
              .WithMany(u => u.UserHubs)
              .HasForeignKey(uh => uh.UserId)
              .OnDelete(DeleteBehavior.Cascade);
-
-            // Hub side đã khai báo ở trên; EF Core không cần khai báo lại
         });
 
         modelBuilder.Entity<OrderClaim>(e =>

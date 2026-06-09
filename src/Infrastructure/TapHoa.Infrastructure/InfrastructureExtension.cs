@@ -8,6 +8,7 @@ using TapHoa.Application.Contracts;
 using TapHoa.Infrastructure.Auth;
 using TapHoa.Infrastructure.Cloudinary;
 using TapHoa.Infrastructure.Moderation;
+using TapHoa.Infrastructure.Notifications;
 using TapHoa.Infrastructure.Payment;
 using TapHoa.Infrastructure.RouteOptimization;
 
@@ -30,6 +31,7 @@ public static class InfrastructureExtension
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IReviewModerationService, GroqModerationService>();
         services.AddScoped<IRouteOptimizationService, OpenRouteOptimizationService>();
+        services.AddScoped<IExpoPushService, ExpoPushService>();
 
         services.Configure<CloudinarySettings>(configuration.GetSection("Cloudinary"));
         services.AddScoped<ICloudinaryService, CloudinaryService>();

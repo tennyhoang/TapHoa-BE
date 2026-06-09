@@ -4,6 +4,7 @@ using System.Security.Claims;
 using TapHoa.Application.Driver.V1;
 using TapHoa.Application.Driver.V1.GetDriverWarehouse;
 using TapHoa.Application.Driver.V1.OptimizeRoute;
+using TapHoa.Application.Driver.V1.SetDeliveryPhoto;
 
 namespace TapHoa.Api.Endpoints.V1.Driver;
 
@@ -73,10 +74,6 @@ public static class DriverEndpoints
         });
 
         // POST /api/v1/driver/optimize-route
-        // Tối ưu lộ trình giao hàng qua OpenRouteService.
-        // Kho xuất phát được lấy tự động từ WarehouseId trên tài khoản Driver đang đăng nhập.
-        // Input: danh sách địa chỉ Hub cần ghé.
-        // Output: danh sách điểm ghé theo thứ tự tối ưu (fallback = thứ tự gốc nếu ORS lỗi).
         group.MapPost("/optimize-route", async (
             [FromBody] OptimizeRouteRequest body,
             ClaimsPrincipal user,
@@ -91,7 +88,7 @@ public static class DriverEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
 
-        // PATCH /api/v1/driver/orders/pickup-from-warehouse  (giữ nguyên — endpoint cũ)
+        // PATCH /api/v1/driver/orders/pickup-from-warehouse
         group.MapPatch("/orders/pickup-from-warehouse", async (
             PickupRequest body, ClaimsPrincipal user, IMediator mediator) =>
         {
@@ -102,6 +99,18 @@ public static class DriverEndpoints
 
             return result.IsSuccess
                 ? Results.Ok(result.Value)
+                : Results.BadRequest(new { result.Error, result.ErrorCode });
+        });
+
+        // PATCH /api/v1/driver/orders/{orderId}/delivery-photo
+        group.MapPatch("/orders/{orderId:guid}/delivery-photo", async (
+            Guid orderId,
+            DeliveryPhotoRequest body,
+            IMediator mediator) =>
+        {
+            var result = await mediator.Send(new SetDeliveryPhotoCommand(orderId, body.PhotoUrl));
+            return result.IsSuccess
+                ? Results.Ok()
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
     }
@@ -124,3 +133,4 @@ public static class DriverEndpoints
 public record PickupRequest(List<Guid> OrderIds);
 public record DispatchRequest(List<Guid> OrderIds);
 public record OptimizeRouteRequest(List<string> OrderAddresses);
+public record DeliveryPhotoRequest(string PhotoUrl);

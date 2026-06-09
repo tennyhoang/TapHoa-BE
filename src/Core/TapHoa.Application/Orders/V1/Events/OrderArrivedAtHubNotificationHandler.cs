@@ -1,29 +1,26 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using TapHoa.Application.Contracts;
 using TapHoa.Application.Orders.V1.Events;
 
 namespace TapHoa.Application.Orders.V1.Events;
 
 public class OrderArrivedAtHubNotificationHandler(
+    IExpoPushService pushService,
     ILogger<OrderArrivedAtHubNotificationHandler> logger)
     : INotificationHandler<OrderArrivedAtHubEvent>
 {
-    public Task Handle(OrderArrivedAtHubEvent notification, CancellationToken cancellationToken)
+    public async Task Handle(OrderArrivedAtHubEvent notification, CancellationToken cancellationToken)
     {
-        // ── Giả lập gửi thông báo cho khách hàng ──────────────────────────────
-        // TODO: Thay thế bằng EmailService / SMS / Push Notification thực tế.
         logger.LogInformation(
-            "[NOTIFY] Đơn hàng {OrderId} đã đến Hub '{HubName}' ({HubAddress}) lúc {ArrivedAt:HH:mm dd/MM/yyyy}. " +
-            "Gửi thông báo tới khách hàng {CustomerFullName} <{CustomerEmail}>: " +
-            "\"Đơn hàng của bạn đã có mặt tại điểm nhận {HubName}. Vui lòng đến lấy hàng.\"",
-            notification.OrderId,
-            notification.HubName,
-            notification.HubAddress,
-            notification.ArrivedAt,
-            notification.CustomerFullName,
-            notification.CustomerEmail,
-            notification.HubName);
+            "[NOTIFY] Order {OrderId} arrived at Hub '{HubName}'. Notifying user {UserId}.",
+            notification.OrderId, notification.HubName, notification.UserId);
 
-        return Task.CompletedTask;
+        await pushService.SendAsync(
+            userId: notification.UserId,
+            title:  "Hàng đã đến điểm nhận",
+            body:   $"Đơn hàng của bạn đã có tại {notification.HubName}. Vui lòng đến lấy hàng.",
+            data:   new { orderId = notification.OrderId, type = "ORDER_IN_HUB" },
+            cancellationToken: cancellationToken);
     }
 }
