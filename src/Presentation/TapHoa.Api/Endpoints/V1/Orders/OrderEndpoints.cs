@@ -52,7 +52,8 @@ public static class OrderEndpoints
             var result = await mediator.Send(new CreateOrderCommand(
                 GetUserId(user), body.HubId, body.Note,
                 body.PaymentMethod ?? "BankTransfer",
-                body.UseWallet));
+                body.UseWallet,
+                body.VoucherCode));
             return Results.Created($"/api/v1/orders/{result.Id}", result);
         });
 
@@ -66,12 +67,22 @@ public static class OrderEndpoints
                 ? Results.Ok(result.Value)
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         }).RequireAuthorization("Admin");
+
+        group.MapPatch("/{id:guid}/refund", async (Guid id, RefundRequest? body, ClaimsPrincipal user, IMediator mediator) =>
+        {
+            var userId = GetUserId(user);
+            var result = await mediator.Send(new CancelOrderCommand(id, userId, body?.Reason));
+            return result is not null
+                ? Results.Ok(result)
+                : Results.BadRequest(new { error = "Không thể yêu cầu hoàn tiền." });
+        });
     }
 
     private static Guid GetUserId(ClaimsPrincipal user) =>
         Guid.Parse(user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
-public record CreateOrderRequest(Guid HubId, string? Note, string? PaymentMethod, bool UseWallet = false);
+public record CreateOrderRequest(Guid HubId, string? Note, string? PaymentMethod, bool UseWallet = false, string? VoucherCode = null);
 public record CancelOrderRequest(string? CancelReason);
 public record UpdateStatusRequest(OrderStatus Status, string? CancelReason = null);
+public record RefundRequest(string? Reason);

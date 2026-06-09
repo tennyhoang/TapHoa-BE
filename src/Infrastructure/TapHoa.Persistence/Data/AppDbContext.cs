@@ -27,6 +27,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FlashSaleItem> FlashSaleItems => Set<FlashSaleItem>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+    public DbSet<Voucher> Vouchers => Set<Voucher>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -283,6 +285,31 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             e.Property(rt => rt.Token).HasMaxLength(500).IsRequired();
             e.HasIndex(rt => rt.Token).IsUnique();
+        });
+
+        modelBuilder.Entity<UserNotification>(e =>
+        {
+            e.Property(n => n.Type).HasMaxLength(50).IsRequired();
+            e.Property(n => n.Title).HasMaxLength(200).IsRequired();
+            e.Property(n => n.Body).HasMaxLength(1000).IsRequired();
+
+            e.HasOne(n => n.User)
+             .WithMany()
+             .HasForeignKey(n => n.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(n => new { n.UserId, n.IsRead });
+        });
+
+        modelBuilder.Entity<Voucher>(e =>
+        {
+            e.Property(v => v.Code).HasMaxLength(50).IsRequired();
+            e.HasIndex(v => v.Code).IsUnique();
+            e.Property(v => v.Type).HasMaxLength(20).IsRequired();
+            e.Property(v => v.DiscountValue).HasColumnType("decimal(18,2)");
+            e.Property(v => v.MinOrderAmount).HasColumnType("decimal(18,2)");
+            e.Property(v => v.UsedCount).HasDefaultValue(0);
+            e.Property(v => v.IsActive).HasDefaultValue(true);
         });
     }
 

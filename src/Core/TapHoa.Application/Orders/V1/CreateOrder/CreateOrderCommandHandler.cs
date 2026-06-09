@@ -11,7 +11,8 @@ public class CreateOrderCommandHandler(
     IRepository<CartItem> cartRepo,
     IRepository<Hub> hubRepo,
     IRepository<User> userRepo,
-    IRepository<WalletTransaction> walletTransactionRepo)
+    IRepository<WalletTransaction> walletTransactionRepo,
+    IRepository<Voucher> voucherRepo)
     : IRequestHandler<CreateOrderCommand, OrderResponse>
 {
     public async Task<OrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -55,6 +56,25 @@ public class CreateOrderCommandHandler(
         var totalAmount  = orderItems.Sum(i => i.UnitPrice * i.Quantity);
         var isCod        = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
         var isWallet     = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
+
+        // ── Voucher discount ─────────────────────────────────────────────────
+        decimal voucherDiscount = 0;
+        if (!string.IsNullOrWhiteSpace(request.VoucherCode))
+        {
+            var voucher = await voucherRepo.Query()
+                .FirstOrDefaultAsync(v => v.Code == request.VoucherCode.ToUpper() && v.IsActive, cancellationToken);
+            if (voucher is not null && (!voucher.ExpiresAt.HasValue || voucher.ExpiresAt > DateTime.UtcNow)
+                && (!voucher.UsageLimit.HasValue || voucher.UsedCount < voucher.UsageLimit)
+                && (!voucher.MinOrderAmount.HasValue || totalAmount >= voucher.MinOrderAmount))
+            {
+                voucherDiscount = voucher.Type == "percent"
+                    ? totalAmount * voucher.DiscountValue / 100
+                    : voucher.DiscountValue;
+                voucherDiscount = Math.Min(voucherDiscount, totalAmount);
+                voucher.UsedCount++;
+            }
+            totalAmount -= voucherDiscount;
+        }
 
         User? buyer = null;
         decimal walletAmountUsed = 0;

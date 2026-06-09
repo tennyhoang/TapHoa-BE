@@ -62,6 +62,18 @@ public static class InfrastructureExtension
                     RoleClaimType = ClaimTypes.Role,
                     NameClaimType = "unique_name"
                 };
+
+                // Cho phép SignalR nhận JWT từ query string (access_token)
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        if (!string.IsNullOrEmpty(accessToken))
+                            context.Token = accessToken;
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
         services.AddAuthorization(options =>
