@@ -11,54 +11,33 @@ namespace TapHoa.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "DeliveryPhotoUrl",
-                table: "Orders",
-                type: "text",
-                nullable: true);
+            migrationBuilder.Sql(@"
+ALTER TABLE ""Orders"" ADD COLUMN IF NOT EXISTS ""DeliveryPhotoUrl"" character varying(2048);
 
-            migrationBuilder.CreateTable(
-                name: "PushTokens",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Token = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Platform = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PushTokens", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_PushTokens_Users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "Users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+CREATE TABLE IF NOT EXISTS ""PushTokens"" (
+    ""Id""        uuid                        NOT NULL,
+    ""UserId""    uuid                        NOT NULL,
+    ""Token""     character varying(200)      NOT NULL,
+    ""Platform""  character varying(10),
+    ""CreatedAt"" timestamp with time zone    NOT NULL,
+    ""UpdatedAt"" timestamp with time zone,
+    CONSTRAINT ""PK_PushTokens"" PRIMARY KEY (""Id""),
+    CONSTRAINT ""FK_PushTokens_Users_UserId"" FOREIGN KEY (""UserId"")
+        REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+);
 
-            migrationBuilder.CreateIndex(
-                name: "IX_PushTokens_Token",
-                table: "PushTokens",
-                column: "Token",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PushTokens_UserId",
-                table: "PushTokens",
-                column: "UserId");
+CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PushTokens_Token"" ON ""PushTokens"" (""Token"");
+CREATE INDEX        IF NOT EXISTS ""IX_PushTokens_UserId"" ON ""PushTokens"" (""UserId"");
+");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(name: "PushTokens");
-
-            migrationBuilder.DropColumn(
-                name: "DeliveryPhotoUrl",
-                table: "Orders");
+            migrationBuilder.Sql(@"
+DROP TABLE IF EXISTS ""PushTokens"";
+ALTER TABLE ""Orders"" DROP COLUMN IF EXISTS ""DeliveryPhotoUrl"";
+");
         }
     }
 }

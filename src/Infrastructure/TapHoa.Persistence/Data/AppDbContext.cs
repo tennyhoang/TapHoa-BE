@@ -29,6 +29,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
+    public DbSet<PushToken> PushTokens => Set<PushToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -303,6 +304,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(v => v.MinOrderAmount).HasColumnType("decimal(18,2)");
             e.Property(v => v.UsedCount).HasDefaultValue(0);
             e.Property(v => v.IsActive).HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<PushToken>(e =>
+        {
+            e.HasOne(pt => pt.User)
+             .WithMany()
+             .HasForeignKey(pt => pt.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.Property(pt => pt.Token).HasMaxLength(200).IsRequired();
+            e.HasIndex(pt => pt.Token).IsUnique();
+            e.Property(pt => pt.Platform).HasMaxLength(10);
         });
     }
 
