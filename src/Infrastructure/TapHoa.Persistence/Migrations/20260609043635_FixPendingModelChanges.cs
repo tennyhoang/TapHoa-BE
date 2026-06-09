@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -10,20 +10,13 @@ namespace TapHoa.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "DeliveryPhotoUrl",
-                table: "Orders",
-                type: "character varying(2048)",
-                maxLength: 2048,
-                nullable: true);
+            // DeliveryPhotoUrl already added by AddPushTokensAndDeliveryPhoto migration.
+            // This migration only syncs the EF model snapshot.
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "DeliveryPhotoUrl",
-                table: "Orders");
         }
     }
 }
