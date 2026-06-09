@@ -47,6 +47,10 @@ public static class InfrastructureExtension
                 options.InstanceName = "TapHoa:";
             });
         }
+        else
+        {
+            services.AddDistributedMemoryCache();
+        }
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
