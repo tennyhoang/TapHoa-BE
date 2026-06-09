@@ -2,6 +2,7 @@ using MediatR;
 using System.Security.Claims;
 using TapHoa.Application.Claims.V1.ApproveClaim;
 using TapHoa.Application.Claims.V1.CreateClaim;
+using TapHoa.Application.Claims.V1.GetMyClaims;
 
 namespace TapHoa.Api.Endpoints.V1.Claims;
 
@@ -9,12 +10,21 @@ public static class ClaimEndpoints
 {
     public static void MapClaimEndpoints(this IEndpointRouteBuilder app)
     {
+        // Customer: xem danh sách khiếu nại của mình
+        app.MapGet("/api/v1/customer/claims", async (ClaimsPrincipal user, IMediator mediator) =>
+        {
+            var customerId = GetUserId(user);
+            var result = await mediator.Send(new GetMyClaimsQuery(customerId));
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { result.Error });
+        }).RequireAuthorization().WithTags("Claims");
+
         // Customer: gửi khiếu nại cho đơn hàng đã nhận
         app.MapPost("/api/v1/customer/orders/{orderId:guid}/claims", async (
             Guid orderId, CreateClaimRequest body, ClaimsPrincipal user, IMediator mediator) =>
         {
-            var customerId = Guid.Parse(
-                user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var customerId = GetUserId(user);
 
             var result = await mediator.Send(
                 new CreateClaimCommand(orderId, customerId, body.Reason, body.ImageUrl));
@@ -38,6 +48,9 @@ public static class ClaimEndpoints
                     : Results.Conflict(new { result.Error, result.ErrorCode });
         }).RequireAuthorization("Admin").WithTags("Claims");
     }
+
+    private static Guid GetUserId(ClaimsPrincipal user) =>
+        Guid.Parse(user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
 public record CreateClaimRequest(string Reason, string? ImageUrl);

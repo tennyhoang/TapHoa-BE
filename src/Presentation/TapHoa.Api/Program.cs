@@ -22,6 +22,10 @@ using TapHoa.Api.Endpoints.V1.Notifications;
 using TapHoa.Api.Endpoints.V1.WarehouseManager;
 using TapHoa.Api.Endpoints.V1.Hubs;
 using TapHoa.Api.Endpoints.V1.Auth;
+using TapHoa.Api.Endpoints.V1.Notifications;
+using TapHoa.Api.Endpoints.V1.Vouchers;
+using TapHoa.Api.Hubs;
+using TapHoa.Application.Contracts;
 using TapHoa.Api.Endpoints.V1.Cart;
 using TapHoa.Api.Endpoints.V1.Categories;
 using TapHoa.Api.Endpoints.V1.Orders;
@@ -62,6 +66,8 @@ try
            .ReadFrom.Services(services)
            .Enrich.FromLogContext());
 
+    builder.Services.AddSignalR();
+    builder.Services.AddScoped<IOrderStatusBroadcaster, SignalROrderStatusBroadcaster>();
     builder.Services.AddApiVersioning(options =>
     {
         options.DefaultApiVersion = new Asp.Versioning.ApiVersion(1, 0);
@@ -242,6 +248,8 @@ try
     app.MapAdminWarehouseEndpoints();
     app.MapWarehouseManagerEndpoints();
     app.MapNotificationEndpoints();
+    app.MapVoucherEndpoints();
+    app.MapHub<OrderTrackingHub>("/hubs/order-tracking").RequireAuthorization();
 
     app.Run();
 }

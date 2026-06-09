@@ -65,17 +65,14 @@ public static class InfrastructureExtension
                     NameClaimType = "unique_name"
                 };
 
-                // Allow SignalR hubs to receive JWT from query string
+                // Cho phép SignalR nhận JWT từ query string (access_token)
                 options.Events = new JwtBearerEvents
                 {
                     OnMessageReceived = context =>
                     {
                         var accessToken = context.Request.Query["access_token"];
-                        if (!string.IsNullOrEmpty(accessToken) &&
-                            context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
-                        {
+                        if (!string.IsNullOrEmpty(accessToken))
                             context.Token = accessToken;
-                        }
                         return Task.CompletedTask;
                     }
                 };

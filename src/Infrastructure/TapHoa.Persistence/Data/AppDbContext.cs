@@ -27,7 +27,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FlashSaleItem> FlashSaleItems => Set<FlashSaleItem>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-    public DbSet<PushToken> PushTokens => Set<PushToken>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+    public DbSet<Voucher> Vouchers => Set<Voucher>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -279,17 +280,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(rt => rt.Token).IsUnique();
         });
 
-        modelBuilder.Entity<PushToken>(e =>
+        modelBuilder.Entity<UserNotification>(e =>
         {
-            e.HasOne(pt => pt.User)
+            e.Property(n => n.Type).HasMaxLength(50).IsRequired();
+            e.Property(n => n.Title).HasMaxLength(200).IsRequired();
+            e.Property(n => n.Body).HasMaxLength(1000).IsRequired();
+
+            e.HasOne(n => n.User)
              .WithMany()
-             .HasForeignKey(pt => pt.UserId)
+             .HasForeignKey(n => n.UserId)
              .OnDelete(DeleteBehavior.Cascade);
 
-            e.Property(pt => pt.Token).HasMaxLength(200).IsRequired();
-            e.Property(pt => pt.Platform).HasMaxLength(10);
-            e.HasIndex(pt => pt.Token).IsUnique();
-            e.HasIndex(pt => pt.UserId);
+            e.HasIndex(n => new { n.UserId, n.IsRead });
+        });
+
+        modelBuilder.Entity<Voucher>(e =>
+        {
+            e.Property(v => v.Code).HasMaxLength(50).IsRequired();
+            e.HasIndex(v => v.Code).IsUnique();
+            e.Property(v => v.Type).HasMaxLength(20).IsRequired();
+            e.Property(v => v.DiscountValue).HasColumnType("decimal(18,2)");
+            e.Property(v => v.MinOrderAmount).HasColumnType("decimal(18,2)");
+            e.Property(v => v.UsedCount).HasDefaultValue(0);
+            e.Property(v => v.IsActive).HasDefaultValue(true);
         });
     }
 
