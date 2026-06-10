@@ -30,12 +30,18 @@ public class ValidateVoucherCommandHandler(IRepository<Voucher> voucherRepo)
             ? request.Total * voucher.DiscountValue / 100
             : voucher.DiscountValue;
 
+        // BR-014: cap by MaxDiscountAmount
+        if (voucher.MaxDiscountAmount.HasValue)
+            discount = Math.Min(discount, voucher.MaxDiscountAmount.Value);
+
         discount = Math.Min(discount, request.Total);
 
         var label = voucher.Type == "percent"
-            ? $"Giảm {voucher.DiscountValue:N0}% (tối đa {discount:N0}đ)"
+            ? $"Giảm {voucher.DiscountValue:N0}%{(voucher.MaxDiscountAmount.HasValue ? $" (tối đa {voucher.MaxDiscountAmount:N0}đ)" : "")}"
             : $"Giảm {voucher.DiscountValue:N0}đ";
 
-        return Result<VoucherResponse>.Ok(new VoucherResponse(discount, voucher.Type, label));
+        var note = voucher.ExcludeFlashSaleItems ? "Không áp dụng cho sản phẩm Flash Sale" : null;
+
+        return Result<VoucherResponse>.Ok(new VoucherResponse(discount, voucher.Type, label, note));
     }
 }

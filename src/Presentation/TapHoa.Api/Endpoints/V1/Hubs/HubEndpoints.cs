@@ -15,9 +15,10 @@ public static class HubEndpoints
     {
         var group = app.MapGroup("/api/v1/hubs").WithTags("Hubs");
 
-        // Public: khách hàng tìm Hub gần nhà trước khi đặt hàng
-        group.MapGet("/", async (IMediator mediator, string? city, string? district) =>
-            Results.Ok(await mediator.Send(new GetActiveHubsQuery(city, district))));
+        // Public: khách hàng tìm Hub gần nhà trước khi đặt hàng (BR-009: sort by distance khi có lat/lng)
+        group.MapGet("/", async (IMediator mediator, string? city, string? district,
+            double? lat, double? lng) =>
+            Results.Ok(await mediator.Send(new GetActiveHubsQuery(city, district, lat, lng))));
 
         group.MapGet("/all", async (
             IMediator mediator,

@@ -13,6 +13,11 @@ public class Hub : BaseEntity
     public double Longitude { get; set; }
     public HubStatus Status { get; set; } = HubStatus.Active;
 
+    // BR-013: configurable per Hub/zone
+    public decimal MinimumOrderAmount { get; set; } = 50_000m;
+    public decimal FreeShippingThreshold { get; set; } = 200_000m;
+    public decimal ShippingFee { get; set; } = 15_000m;
+
     // Các đơn hàng được nhận tại Hub này
     public ICollection<Order> Orders { get; set; } = [];
 

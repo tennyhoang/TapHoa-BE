@@ -38,5 +38,7 @@ public record OrderResponse(
     DateTime? InHubAt,
     DateTime? CompletedAt,
     DateTime? CancelledAt,
-    DateTime? RefundedAt
+    DateTime? RefundedAt,
+    decimal ShippingFee = 0m,
+    decimal VoucherDiscount = 0m
 );

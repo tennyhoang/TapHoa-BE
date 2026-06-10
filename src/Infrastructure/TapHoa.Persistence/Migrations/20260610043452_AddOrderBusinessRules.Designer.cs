@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TapHoa.Persistence.Data;
@@ -11,9 +12,11 @@ using TapHoa.Persistence.Data;
 namespace TapHoa.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260610043452_AddOrderBusinessRules")]
+    partial class AddOrderBusinessRules
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -330,52 +333,6 @@ namespace TapHoa.Persistence.Migrations
                     b.ToTable("HubInventories");
                 });
 
-            modelBuilder.Entity("TapHoa.Domain.Entities.InventoryTransaction", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ActorUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("HubId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("OrderId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("QuantityAfter")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("QuantityBefore")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("InventoryTransactions");
-                });
-
             modelBuilder.Entity("TapHoa.Domain.Entities.Order", b =>
                 {
                     b.Property<Guid>("Id")
@@ -398,11 +355,6 @@ namespace TapHoa.Persistence.Migrations
                     b.Property<string>("DeliveryPhotoUrl")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
-
-                    b.Property<int>("FailedDeliveryAttempts")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
 
                     b.Property<Guid>("HubId")
                         .HasColumnType("uuid");
@@ -1248,17 +1200,6 @@ namespace TapHoa.Persistence.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("TapHoa.Domain.Entities.InventoryTransaction", b =>
-                {
-                    b.HasOne("TapHoa.Domain.Entities.Product", "Product")
-                        .WithMany()
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Product");
-                });
-
             modelBuilder.Entity("TapHoa.Domain.Entities.Order", b =>
                 {
                     b.HasOne("TapHoa.Domain.Entities.Hub", "Hub")
@@ -1494,17 +1435,6 @@ namespace TapHoa.Persistence.Migrations
                 });
 
             modelBuilder.Entity("TapHoa.Domain.Entities.WithdrawRequest", b =>
-                {
-                    b.HasOne("TapHoa.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("TapHoa.Domain.Entities.PushToken", b =>
                 {
                     b.HasOne("TapHoa.Domain.Entities.User", "User")
                         .WithMany()

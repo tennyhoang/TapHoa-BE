@@ -12,7 +12,9 @@ public class CreateOrderCommandHandler(
     IRepository<Hub> hubRepo,
     IRepository<User> userRepo,
     IRepository<WalletTransaction> walletTransactionRepo,
-    IRepository<Voucher> voucherRepo)
+    IRepository<Voucher> voucherRepo,
+    IRepository<FlashSaleItem> flashSaleItemRepo,
+    IRepository<InventoryTransaction> inventoryTxRepo)
     : IRequestHandler<CreateOrderCommand, OrderResponse>
 {
     public async Task<OrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -41,9 +43,21 @@ public class CreateOrderCommandHandler(
                     $"Sản phẩm '{item.Product.Name}' chỉ còn {item.Product.Stock} trong kho.");
         }
 
-        // ── Deduct stock (tracked entities — no Update() needed) ──────────────
-        foreach (var item in cartItems)
+        // ── Deduct stock + audit trail (BR-012) ───────────────────────────────
+        var inventoryLogs = cartItems.Select(item =>
+        {
+            var before = item.Product.Stock;
             item.Product.Stock -= item.Quantity;
+            return new InventoryTransaction
+            {
+                ProductId      = item.ProductId,
+                ActorUserId    = request.UserId,
+                Type           = InventoryTransactionType.HardReserve,
+                QuantityBefore = before,
+                QuantityAfter  = item.Product.Stock,
+                Reason         = $"Đặt hàng — đơn tạm thời",
+            };
+        }).ToList();
 
         var orderItems = cartItems.Select(c => new OrderItem
         {
@@ -52,24 +66,60 @@ public class CreateOrderCommandHandler(
             UnitPrice = c.Product.DiscountPrice ?? c.Product.Price
         }).ToList();
 
-        var orderId      = Guid.NewGuid();
-        var totalAmount  = orderItems.Sum(i => i.UnitPrice * i.Quantity);
+        var orderId     = Guid.NewGuid();
+        var totalAmount = orderItems.Sum(i => i.UnitPrice * i.Quantity);
+
+        // ── BR-013: minimum order value check ─────────────────────────────────
+        if (totalAmount < hub.MinimumOrderAmount)
+            throw new InvalidOperationException(
+                $"Giá trị đơn hàng tối thiểu là {hub.MinimumOrderAmount:N0}đ. " +
+                $"Cần mua thêm {(hub.MinimumOrderAmount - totalAmount):N0}đ.");
+
+        // ── Shipping fee (waived when totalAmount >= FreeShippingThreshold) ────
+        var shippingFee = totalAmount >= hub.FreeShippingThreshold ? 0m : hub.ShippingFee;
+        totalAmount += shippingFee;
         var isCod        = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
         var isWallet     = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
 
-        // ── Voucher discount ─────────────────────────────────────────────────
+        // ── BR-014: Voucher discount ──────────────────────────────────────────
         decimal voucherDiscount = 0;
         if (!string.IsNullOrWhiteSpace(request.VoucherCode))
         {
             var voucher = await voucherRepo.Query()
                 .FirstOrDefaultAsync(v => v.Code == request.VoucherCode.ToUpper() && v.IsActive, cancellationToken);
-            if (voucher is not null && (!voucher.ExpiresAt.HasValue || voucher.ExpiresAt > DateTime.UtcNow)
+
+            if (voucher is not null
+                && (!voucher.ExpiresAt.HasValue || voucher.ExpiresAt > DateTime.UtcNow)
                 && (!voucher.UsageLimit.HasValue || voucher.UsedCount < voucher.UsageLimit)
                 && (!voucher.MinOrderAmount.HasValue || totalAmount >= voucher.MinOrderAmount))
             {
+                // BR-014: voucher doesn't apply to Flash Sale items unless ExcludeFlashSaleItems = false
+                var applicableTotal = totalAmount - shippingFee; // apply on subtotal before shipping
+                if (voucher.ExcludeFlashSaleItems)
+                {
+                    var productIds = cartItems.Select(c => c.ProductId).ToList();
+                    var now = DateTime.UtcNow;
+                    var flashSaleProductIds = await flashSaleItemRepo.Query()
+                        .Where(f => productIds.Contains(f.ProductId)
+                            && f.Session.IsActive
+                            && f.Session.StartTime <= now
+                            && f.Session.EndTime >= now)
+                        .Select(f => f.ProductId)
+                        .ToListAsync(cancellationToken);
+
+                    applicableTotal = orderItems
+                        .Where(i => !flashSaleProductIds.Contains(i.ProductId))
+                        .Sum(i => i.UnitPrice * i.Quantity);
+                }
+
                 voucherDiscount = voucher.Type == "percent"
-                    ? totalAmount * voucher.DiscountValue / 100
+                    ? applicableTotal * voucher.DiscountValue / 100
                     : voucher.DiscountValue;
+
+                // cap by MaxDiscountAmount
+                if (voucher.MaxDiscountAmount.HasValue)
+                    voucherDiscount = Math.Min(voucherDiscount, voucher.MaxDiscountAmount.Value);
+
                 voucherDiscount = Math.Min(voucherDiscount, totalAmount);
                 voucher.UsedCount++;
             }
@@ -120,6 +170,13 @@ public class CreateOrderCommandHandler(
 
         await orderRepo.SaveChangesAsync();
 
+        // Ghi log sau khi có OrderId (BR-012)
+        foreach (var log in inventoryLogs)
+            log.OrderId = order.Id;
+        foreach (var log in inventoryLogs)
+            await inventoryTxRepo.AddAsync(log);
+        await inventoryTxRepo.SaveChangesAsync();
+
         if (walletAmountUsed > 0 && buyer is not null)
         {
             var shortRef = orderId.ToString()[..8].ToUpper();
@@ -136,10 +193,11 @@ public class CreateOrderCommandHandler(
             await walletTransactionRepo.SaveChangesAsync();
         }
 
-        return MapToResponse(order, hub, cartItems);
+        return MapToResponse(order, hub, cartItems, shippingFee, voucherDiscount);
     }
 
-    internal static OrderResponse MapToResponse(Order o, Hub hub, List<CartItem>? cartItems = null) => new(
+    internal static OrderResponse MapToResponse(Order o, Hub hub, List<CartItem>? cartItems = null,
+        decimal shippingFee = 0m, decimal voucherDiscount = 0m) => new(
         o.Id, o.Status, o.TotalAmount, o.WalletAmountUsed, o.Note,
         new HubInfo(hub.Id, hub.Name, hub.Address, hub.Ward, hub.District, hub.City, hub.Latitude, hub.Longitude),
         o.Items.Select(i =>
@@ -162,6 +220,8 @@ public class CreateOrderCommandHandler(
         o.InHubAt,
         o.CompletedAt,
         o.CancelledAt,
-        o.RefundedAt
+        o.RefundedAt,
+        shippingFee,
+        voucherDiscount
     );
 }

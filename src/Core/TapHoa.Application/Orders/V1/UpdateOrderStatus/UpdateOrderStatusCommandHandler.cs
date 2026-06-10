@@ -14,6 +14,7 @@ public class UpdateOrderStatusCommandHandler(
     IRepository<Order> orderRepo,
     IHubInventoryRepository inventoryRepo,
     IRepository<UserNotification> notificationRepo,
+    IRepository<InventoryTransaction> inventoryTxRepo,
     IOrderStatusBroadcaster broadcaster,
     IPublisher publisher)
     : IRequestHandler<UpdateOrderStatusCommand, Result<OrderResponse>>
@@ -48,15 +49,29 @@ public class UpdateOrderStatusCommandHandler(
             return Result<OrderResponse>.Fail(ex.Message, "INVALID_TRANSITION");
         }
 
-        // Hoàn kho Hub khi Admin hủy đơn
+        // Hoàn kho Hub khi Admin hủy đơn + audit trail (BR-012)
         if (order.Status == OrderStatus.Cancelled)
         {
             foreach (var item in order.Items)
             {
                 var hubInv = await inventoryRepo.FindAsync(order.HubId, item.ProductId);
                 if (hubInv is not null)
+                {
+                    var before = hubInv.Stock;
                     hubInv.Stock += item.Quantity;
+                    await inventoryTxRepo.AddAsync(new InventoryTransaction
+                    {
+                        ProductId      = item.ProductId,
+                        HubId          = order.HubId,
+                        OrderId        = order.Id,
+                        Type           = InventoryTransactionType.Release,
+                        QuantityBefore = before,
+                        QuantityAfter  = hubInv.Stock,
+                        Reason         = $"Huỷ đơn #{order.Id.ToString()[..8].ToUpper()}",
+                    });
+                }
             }
+            await inventoryTxRepo.SaveChangesAsync();
         }
 
         // Entity đã được tracked — change tracker tự phát hiện mutation, không cần gọi Update().

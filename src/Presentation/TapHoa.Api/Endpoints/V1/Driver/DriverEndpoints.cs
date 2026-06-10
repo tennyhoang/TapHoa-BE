@@ -4,6 +4,7 @@ using System.Security.Claims;
 using TapHoa.Application.Driver.V1;
 using TapHoa.Application.Driver.V1.GetDriverWarehouse;
 using TapHoa.Application.Driver.V1.OptimizeRoute;
+using TapHoa.Application.Driver.V1.ReportDeliveryFailure;
 using TapHoa.Application.Driver.V1.SetDeliveryPhoto;
 
 namespace TapHoa.Api.Endpoints.V1.Driver;
@@ -102,6 +103,18 @@ public static class DriverEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
 
+        // PATCH /api/v1/driver/orders/{orderId}/delivery-failure  (BR-007)
+        group.MapPatch("/orders/{orderId:guid}/delivery-failure", async (
+            Guid orderId,
+            DeliveryFailureRequest body,
+            IMediator mediator) =>
+        {
+            var result = await mediator.Send(new ReportDeliveryFailureCommand(orderId, body.Reason));
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { result.Error, result.ErrorCode });
+        });
+
         // PATCH /api/v1/driver/orders/{orderId}/delivery-photo
         group.MapPatch("/orders/{orderId:guid}/delivery-photo", async (
             Guid orderId,
@@ -134,3 +147,4 @@ public record PickupRequest(List<Guid> OrderIds);
 public record DispatchRequest(List<Guid> OrderIds);
 public record OptimizeRouteRequest(List<string> OrderAddresses);
 public record DeliveryPhotoRequest(string PhotoUrl);
+public record DeliveryFailureRequest(string? Reason);
