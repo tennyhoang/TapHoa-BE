@@ -10,4 +10,7 @@ public class Voucher : BaseEntity
     public int UsedCount { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime? ExpiresAt { get; set; }
+    // BR-014
+    public decimal? MaxDiscountAmount { get; set; }
+    public bool ExcludeFlashSaleItems { get; set; } = true;
 }

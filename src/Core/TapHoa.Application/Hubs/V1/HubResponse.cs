@@ -11,5 +11,8 @@ public record HubResponse(
     string City,
     double Latitude,
     double Longitude,
-    HubStatus Status
+    HubStatus Status,
+    decimal MinimumOrderAmount,
+    decimal FreeShippingThreshold,
+    decimal ShippingFee
 );

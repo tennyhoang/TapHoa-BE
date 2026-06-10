@@ -30,5 +30,6 @@ public class GetActiveHubsQueryHandler(IRepository<Hub> hubRepo)
 
     internal static HubResponse MapToResponse(Hub h) => new(
         h.Id, h.Name, h.Address, h.Ward, h.District, h.City,
-        h.Latitude, h.Longitude, h.Status);
+        h.Latitude, h.Longitude, h.Status,
+        h.MinimumOrderAmount, h.FreeShippingThreshold, h.ShippingFee);
 }
