@@ -13,7 +13,8 @@ public class CreateOrderCommandHandler(
     IRepository<User> userRepo,
     IRepository<WalletTransaction> walletTransactionRepo,
     IRepository<Voucher> voucherRepo,
-    IRepository<FlashSaleItem> flashSaleItemRepo)
+    IRepository<FlashSaleItem> flashSaleItemRepo,
+    IRepository<InventoryTransaction> inventoryTxRepo)
     : IRequestHandler<CreateOrderCommand, OrderResponse>
 {
     public async Task<OrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -42,9 +43,21 @@ public class CreateOrderCommandHandler(
                     $"Sản phẩm '{item.Product.Name}' chỉ còn {item.Product.Stock} trong kho.");
         }
 
-        // ── Deduct stock (tracked entities — no Update() needed) ──────────────
-        foreach (var item in cartItems)
+        // ── Deduct stock + audit trail (BR-012) ───────────────────────────────
+        var inventoryLogs = cartItems.Select(item =>
+        {
+            var before = item.Product.Stock;
             item.Product.Stock -= item.Quantity;
+            return new InventoryTransaction
+            {
+                ProductId      = item.ProductId,
+                ActorUserId    = request.UserId,
+                Type           = InventoryTransactionType.HardReserve,
+                QuantityBefore = before,
+                QuantityAfter  = item.Product.Stock,
+                Reason         = $"Đặt hàng — đơn tạm thời",
+            };
+        }).ToList();
 
         var orderItems = cartItems.Select(c => new OrderItem
         {
@@ -156,6 +169,13 @@ public class CreateOrderCommandHandler(
             cartRepo.Remove(item);
 
         await orderRepo.SaveChangesAsync();
+
+        // Ghi log sau khi có OrderId (BR-012)
+        foreach (var log in inventoryLogs)
+            log.OrderId = order.Id;
+        foreach (var log in inventoryLogs)
+            await inventoryTxRepo.AddAsync(log);
+        await inventoryTxRepo.SaveChangesAsync();
 
         if (walletAmountUsed > 0 && buyer is not null)
         {

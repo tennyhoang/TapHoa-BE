@@ -30,6 +30,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<PushToken> PushTokens => Set<PushToken>();
+    public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,6 +74,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(o => o.Status).HasConversion<string>();
             e.Property(o => o.CancelReason).HasMaxLength(500);
             e.Property(o => o.DeliveryPhotoUrl).HasMaxLength(2048);
+            e.Property(o => o.FailedDeliveryAttempts).HasDefaultValue(0);
+        });
+
+        modelBuilder.Entity<InventoryTransaction>(e =>
+        {
+            e.Property(t => t.Type).HasConversion<string>();
+            e.Property(t => t.Reason).HasMaxLength(500);
+            e.HasOne(t => t.Product)
+             .WithMany()
+             .HasForeignKey(t => t.ProductId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<OrderItem>(e =>
