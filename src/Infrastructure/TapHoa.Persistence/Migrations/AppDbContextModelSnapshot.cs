@@ -1504,6 +1504,17 @@ namespace TapHoa.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TapHoa.Domain.Entities.PushToken", b =>
+                {
+                    b.HasOne("TapHoa.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TapHoa.Domain.Entities.Category", b =>
                 {
                     b.Navigation("Children");
