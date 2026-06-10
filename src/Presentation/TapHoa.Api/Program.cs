@@ -22,6 +22,9 @@ using TapHoa.Api.Endpoints.V1.Notifications;
 using TapHoa.Api.Endpoints.V1.WarehouseManager;
 using TapHoa.Api.Endpoints.V1.Hubs;
 using TapHoa.Api.Endpoints.V1.Auth;
+using TapHoa.Api.Endpoints.V1.Vouchers;
+using TapHoa.Api.Hubs;
+using TapHoa.Application.Contracts;
 using TapHoa.Api.Endpoints.V1.Cart;
 using TapHoa.Api.Endpoints.V1.Categories;
 using TapHoa.Api.Endpoints.V1.Orders;
@@ -32,10 +35,8 @@ using TapHoa.Api.Endpoints.V1.Products;
 using TapHoa.Api.Endpoints.V1.Reviews;
 using TapHoa.Api.Endpoints.V1.Upload;
 using TapHoa.Api.Endpoints.V1.Users;
-using TapHoa.Api.Hubs;
 using TapHoa.Api.Middleware;
 using TapHoa.Application;
-using TapHoa.Application.Contracts;
 using TapHoa.Infrastructure;
 using TapHoa.Persistence;
 using TapHoa.Persistence.Data;
@@ -61,6 +62,10 @@ try
         cfg.ReadFrom.Configuration(ctx.Configuration)
            .ReadFrom.Services(services)
            .Enrich.FromLogContext());
+
+    builder.Services.AddSignalR();
+    builder.Services.AddScoped<IOrderStatusBroadcaster, SignalROrderStatusBroadcaster>();
+    builder.Services.AddScoped<IOrderTrackingService, OrderTrackingService>();
 
     builder.Services.AddApiVersioning(options =>
     {
@@ -109,10 +114,6 @@ try
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddPersistence(builder.Configuration);
 
-    // ── SignalR ───────────────────────────────────────────────────────────────
-    builder.Services.AddSignalR();
-    builder.Services.AddScoped<IOrderTrackingService, OrderTrackingService>();
-
     builder.Services.ConfigureHttpJsonOptions(opt =>
         opt.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
@@ -151,8 +152,7 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        if (app.Environment.IsDevelopment())
-            await db.Database.MigrateAsync();
+        await db.Database.MigrateAsync();
         await DataSeeder.SeedAsync(db);
     }
 
@@ -213,7 +213,7 @@ try
     }).AllowAnonymous();
 
     // ── SignalR Hub ───────────────────────────────────────────────────────────
-    app.MapHub<OrderTrackingHub>("/hubs/order-tracking");
+    app.MapHub<OrderTrackingHub>("/hubs/order-tracking").RequireAuthorization();
 
     app.MapArticleEndpoints();
     app.MapFlashSaleEndpoints();
@@ -242,6 +242,7 @@ try
     app.MapAdminWarehouseEndpoints();
     app.MapWarehouseManagerEndpoints();
     app.MapNotificationEndpoints();
+    app.MapVoucherEndpoints();
 
     app.Run();
 }

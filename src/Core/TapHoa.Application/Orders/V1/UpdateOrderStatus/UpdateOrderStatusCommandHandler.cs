@@ -13,7 +13,8 @@ namespace TapHoa.Application.Orders.V1.UpdateOrderStatus;
 public class UpdateOrderStatusCommandHandler(
     IRepository<Order> orderRepo,
     IHubInventoryRepository inventoryRepo,
-    IOrderTrackingService orderTracking,
+    IRepository<UserNotification> notificationRepo,
+    IOrderStatusBroadcaster broadcaster,
     IPublisher publisher)
     : IRequestHandler<UpdateOrderStatusCommand, Result<OrderResponse>>
 {
@@ -61,9 +62,30 @@ public class UpdateOrderStatusCommandHandler(
         // Entity đã được tracked — change tracker tự phát hiện mutation, không cần gọi Update().
         await orderRepo.SaveChangesAsync();
 
-        // Notify real-time via SignalR for all status changes
-        await orderTracking.NotifyOrderStatusChangedAsync(
-            order.UserId, order.Id, order.Status.ToString(), cancellationToken);
+        // ── SignalR broadcast ──────────────────────────────────────────────────
+        await broadcaster.BroadcastStatusChanged(
+            order.Id, order.Status.ToString(), order.UserId, cancellationToken);
+
+        // ── Create notification ────────────────────────────────────────────────
+        var shortRef = order.Id.ToString()[..8].ToUpper();
+        var (title, body) = order.Status switch
+        {
+            OrderStatus.ShippingToHub        => ($"Đơn hàng #{shortRef}", "Đơn hàng đang được vận chuyển đến điểm nhận."),
+            OrderStatus.InHub_ReadyForPickup => ($"Đơn hàng #{shortRef}", "Hàng đã đến điểm nhận, bạn có thể đến lấy."),
+            OrderStatus.Completed            => ($"Đơn hàng #{shortRef}", "Đơn hàng đã hoàn thành. Cảm ơn bạn đã mua sắm!"),
+            OrderStatus.Cancelled            => ($"Đơn hàng #{shortRef}", $"Đơn hàng đã bị hủy. {order.CancelReason}"),
+            _                                => ($"Đơn hàng #{shortRef}", $"Trạng thái đơn hàng đã thay đổi thành {order.Status}."),
+        };
+
+        await notificationRepo.AddAsync(new UserNotification
+        {
+            UserId  = order.UserId,
+            Type    = "OrderStatus",
+            Title   = title,
+            Body    = body,
+            Data    = System.Text.Json.JsonSerializer.Serialize(new { orderId = order.Id.ToString() }),
+        });
+        await notificationRepo.SaveChangesAsync();
 
         if (order.Status == OrderStatus.InHub_ReadyForPickup)
         {
