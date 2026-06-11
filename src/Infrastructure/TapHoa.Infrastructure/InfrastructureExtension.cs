@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Resend;
 using TapHoa.Application.Contracts;
 using TapHoa.Infrastructure.Auth;
 using TapHoa.Infrastructure.Cloudinary;
@@ -28,7 +29,17 @@ public static class InfrastructureExtension
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IJwtService, JwtService>();
-        services.AddScoped<IEmailService, EmailService>();
+
+        var resendApiKey = configuration["Resend:ApiKey"];
+        if (!string.IsNullOrWhiteSpace(resendApiKey))
+        {
+            services.AddResend(o => o.ApiToken = resendApiKey);
+            services.AddScoped<IEmailService, ResendEmailService>();
+        }
+        else
+        {
+            services.AddScoped<IEmailService, EmailService>();
+        }
         services.AddScoped<IReviewModerationService, GroqModerationService>();
         services.AddScoped<IRouteOptimizationService, OpenRouteOptimizationService>();
         services.AddScoped<IExpoPushService, ExpoPushService>();
