@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using TapHoa.Application.Contracts;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Enums;
 using TapHoa.Domain.Repositories;
@@ -13,8 +14,10 @@ public class CreateOrderCommandHandler(
     IRepository<User> userRepo,
     IRepository<WalletTransaction> walletTransactionRepo,
     IRepository<Voucher> voucherRepo,
-    IRepository<FlashSaleItem> flashSaleItemRepo,
-    IRepository<InventoryTransaction> inventoryTxRepo)
+    IFlashSaleRepository flashSaleRepo,
+    IRepository<InventoryTransaction> inventoryTxRepo,
+    IUnitOfWork unitOfWork,
+    IEmailService emailService)
     : IRequestHandler<CreateOrderCommand, OrderResponse>
 {
     public async Task<OrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -41,6 +44,22 @@ public class CreateOrderCommandHandler(
             if (item.Product.Stock < item.Quantity)
                 throw new InvalidOperationException(
                     $"Sản phẩm '{item.Product.Name}' chỉ còn {item.Product.Stock} trong kho.");
+        }
+
+        var productIds = cartItems.Select(c => c.ProductId).ToList();
+
+        // ── Flash Sale: load active items and pre-check stock ──────────────────
+        var flashSaleItems = await flashSaleRepo.GetActiveByProductIdsAsync(productIds, cancellationToken);
+        var flashSaleMap   = flashSaleItems.ToDictionary(f => f.ProductId);
+
+        foreach (var item in cartItems)
+        {
+            if (flashSaleMap.TryGetValue(item.ProductId, out var fsItem)
+                && fsItem.FlashSaleStock < item.Quantity)
+            {
+                throw new InvalidOperationException(
+                    $"Sản phẩm '{item.Product.Name}' chỉ còn {fsItem.FlashSaleStock} suất Flash Sale.");
+            }
         }
 
         // ── Deduct stock + audit trail (BR-012) ───────────────────────────────
@@ -78,8 +97,8 @@ public class CreateOrderCommandHandler(
         // ── Shipping fee (waived when totalAmount >= FreeShippingThreshold) ────
         var shippingFee = totalAmount >= hub.FreeShippingThreshold ? 0m : hub.ShippingFee;
         totalAmount += shippingFee;
-        var isCod        = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
-        var isWallet     = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
+        var isCod    = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
+        var isWallet = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
 
         // ── BR-014: Voucher discount ──────────────────────────────────────────
         decimal voucherDiscount = 0;
@@ -93,20 +112,10 @@ public class CreateOrderCommandHandler(
                 && (!voucher.UsageLimit.HasValue || voucher.UsedCount < voucher.UsageLimit)
                 && (!voucher.MinOrderAmount.HasValue || totalAmount >= voucher.MinOrderAmount))
             {
-                // BR-014: voucher doesn't apply to Flash Sale items unless ExcludeFlashSaleItems = false
-                var applicableTotal = totalAmount - shippingFee; // apply on subtotal before shipping
+                var applicableTotal = totalAmount - shippingFee;
                 if (voucher.ExcludeFlashSaleItems)
                 {
-                    var productIds = cartItems.Select(c => c.ProductId).ToList();
-                    var now = DateTime.UtcNow;
-                    var flashSaleProductIds = await flashSaleItemRepo.Query()
-                        .Where(f => productIds.Contains(f.ProductId)
-                            && f.Session.IsActive
-                            && f.Session.StartTime <= now
-                            && f.Session.EndTime >= now)
-                        .Select(f => f.ProductId)
-                        .ToListAsync(cancellationToken);
-
+                    var flashSaleProductIds = flashSaleMap.Keys.ToHashSet();
                     applicableTotal = orderItems
                         .Where(i => !flashSaleProductIds.Contains(i.ProductId))
                         .Sum(i => i.UnitPrice * i.Quantity);
@@ -116,7 +125,6 @@ public class CreateOrderCommandHandler(
                     ? applicableTotal * voucher.DiscountValue / 100
                     : voucher.DiscountValue;
 
-                // cap by MaxDiscountAmount
                 if (voucher.MaxDiscountAmount.HasValue)
                     voucherDiscount = Math.Min(voucherDiscount, voucher.MaxDiscountAmount.Value);
 
@@ -135,16 +143,14 @@ public class CreateOrderCommandHandler(
                 ?? throw new KeyNotFoundException("Người dùng không tồn tại.");
 
             walletAmountUsed = isWallet
-                ? totalAmount                                    // full wallet payment
-                : Math.Min(buyer.WalletBalance, totalAmount);    // partial: use all available balance
+                ? totalAmount
+                : Math.Min(buyer.WalletBalance, totalAmount);
 
             buyer.DebitWallet(walletAmountUsed);
             userRepo.Update(buyer);
         }
 
         var remainingAmount = totalAmount - walletAmountUsed;
-
-        // PaymentRef only needed when a bank transfer is still required
         var needsBankTransfer = !isCod && !isWallet && remainingAmount > 0;
         var paymentRef = needsBankTransfer ? "TH" + orderId.ToString("N")[..8].ToUpper() : null;
 
@@ -160,40 +166,96 @@ public class CreateOrderCommandHandler(
             PaymentRef       = paymentRef,
         };
 
-        // Confirm immediately when no pending bank transfer: COD, full wallet, hybrid+COD, or wallet covers full amount
         if (!needsBankTransfer) order.ConfirmPayment();
 
-        await orderRepo.AddAsync(order);
-
-        foreach (var item in cartItems)
-            cartRepo.Remove(item);
-
-        await orderRepo.SaveChangesAsync();
-
-        // Ghi log sau khi có OrderId (BR-012)
-        foreach (var log in inventoryLogs)
-            log.OrderId = order.Id;
-        foreach (var log in inventoryLogs)
-            await inventoryTxRepo.AddAsync(log);
-        await inventoryTxRepo.SaveChangesAsync();
-
-        if (walletAmountUsed > 0 && buyer is not null)
+        // ── Transaction: atomically decrement flash sale stock + persist order ──
+        await using var tx = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
         {
-            var shortRef = orderId.ToString()[..8].ToUpper();
-            await walletTransactionRepo.AddAsync(new WalletTransaction
+            // FOR UPDATE via UPDATE ... WHERE FlashSaleStock >= qty (atomic, no oversell)
+            foreach (var item in cartItems.Where(i => flashSaleMap.ContainsKey(i.ProductId)))
             {
-                UserId      = buyer.Id,
-                Amount      = walletAmountUsed,
-                Type        = WalletTransactionType.Debit,
-                Description = isWallet
-                    ? $"Thanh toán đơn hàng #{shortRef}"
-                    : $"Thanh toán một phần đơn hàng #{shortRef} qua ví",
-                OrderId     = orderId,
-            });
-            await walletTransactionRepo.SaveChangesAsync();
+                var fsItem = flashSaleMap[item.ProductId];
+                var ok = await flashSaleRepo.TryDecrementStockAsync(fsItem.Id, item.Quantity, cancellationToken);
+                if (!ok)
+                    throw new InvalidOperationException(
+                        $"Sản phẩm '{item.Product.Name}' đã hết suất Flash Sale. Vui lòng thử lại.");
+            }
+
+            await orderRepo.AddAsync(order);
+            foreach (var item in cartItems)
+                cartRepo.Remove(item);
+            await orderRepo.SaveChangesAsync();
+
+            foreach (var log in inventoryLogs)
+                log.OrderId = order.Id;
+            foreach (var log in inventoryLogs)
+                await inventoryTxRepo.AddAsync(log);
+            await inventoryTxRepo.SaveChangesAsync();
+
+            if (walletAmountUsed > 0 && buyer is not null)
+            {
+                var shortRef = orderId.ToString()[..8].ToUpper();
+                await walletTransactionRepo.AddAsync(new WalletTransaction
+                {
+                    UserId      = buyer.Id,
+                    Amount      = walletAmountUsed,
+                    Type        = WalletTransactionType.Debit,
+                    Description = isWallet
+                        ? $"Thanh toán đơn hàng #{shortRef}"
+                        : $"Thanh toán một phần đơn hàng #{shortRef} qua ví",
+                    OrderId     = orderId,
+                });
+                await walletTransactionRepo.SaveChangesAsync();
+            }
+
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await tx.RollbackAsync(cancellationToken);
+            throw;
         }
 
+        // ── Confirmation email (fire-and-forget, non-blocking) ─────────────────
+        _ = SendConfirmationEmailAsync(request.UserId, order, hub, cartItems, shippingFee, voucherDiscount);
+
         return MapToResponse(order, hub, cartItems, shippingFee, voucherDiscount);
+    }
+
+    private async Task SendConfirmationEmailAsync(
+        Guid userId, Order order, Hub hub, List<CartItem> cartItems,
+        decimal shippingFee, decimal voucherDiscount)
+    {
+        try
+        {
+            var user = await userRepo.GetByIdAsync(userId);
+            if (user is null) return;
+
+            var shortRef   = order.Id.ToString()[..8].ToUpper();
+            var itemsSummary = string.Join(", ", cartItems.Select(c => $"{c.Product.Name} x{c.Quantity}"));
+            var body = $"""
+                <h2>Xác nhận đơn hàng #{shortRef}</h2>
+                <p>Chào {user.FullName},</p>
+                <p>Đơn hàng của bạn đã được đặt thành công!</p>
+                <table style="width:100%;border-collapse:collapse">
+                  <tr><td><strong>Mã đơn:</strong></td><td>#{shortRef}</td></tr>
+                  <tr><td><strong>Điểm lấy hàng:</strong></td><td>{hub.Name} — {hub.Address}, {hub.Ward}, {hub.District}</td></tr>
+                  <tr><td><strong>Sản phẩm:</strong></td><td>{itemsSummary}</td></tr>
+                  {(shippingFee > 0 ? $"<tr><td><strong>Phí giao:</strong></td><td>{shippingFee:N0}đ</td></tr>" : "")}
+                  {(voucherDiscount > 0 ? $"<tr><td><strong>Giảm giá:</strong></td><td>-{voucherDiscount:N0}đ</td></tr>" : "")}
+                  <tr><td><strong>Tổng tiền:</strong></td><td><strong>{order.TotalAmount:N0}đ</strong></td></tr>
+                  {(order.PaymentRef is not null ? $"<tr><td><strong>Mã chuyển khoản:</strong></td><td>{order.PaymentRef}</td></tr>" : "")}
+                </table>
+                <p style="margin-top:16px">Cảm ơn bạn đã tin tưởng TapHoa!</p>
+                """;
+
+            await emailService.SendEmailAsync(user.Email, $"Xác nhận đơn hàng #{shortRef} — TapHoa", body);
+        }
+        catch
+        {
+            // Email failure must not break the order flow
+        }
     }
 
     internal static OrderResponse MapToResponse(Order o, Hub hub, List<CartItem>? cartItems = null,

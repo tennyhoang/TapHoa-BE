@@ -21,6 +21,7 @@ public class AgentCompletePickupCommandHandler(
     public async Task<Result<OrderResponse>> Handle(AgentCompletePickupCommand request, CancellationToken cancellationToken)
     {
         var order = await orderRepo.Query()
+            .Include(o => o.User)
             .Include(o => o.Hub)
             .Include(o => o.Items).ThenInclude(i => i.Product)
             .FirstOrDefaultAsync(o => o.Id == request.OrderId, cancellationToken);
@@ -60,10 +61,12 @@ public class AgentCompletePickupCommandHandler(
 
         // ── Domain event (Expo push + future hooks) ────────────────────────────
         await publisher.Publish(new OrderCompletedEvent(
-            OrderId:     order.Id,
-            UserId:      order.UserId,
-            TotalAmount: order.TotalAmount,
-            CompletedAt: order.CompletedAt!.Value
+            OrderId:          order.Id,
+            UserId:           order.UserId,
+            CustomerEmail:    order.User.Email,
+            CustomerFullName: order.User.FullName,
+            TotalAmount:      order.TotalAmount,
+            CompletedAt:      order.CompletedAt!.Value
         ), cancellationToken);
 
         return Result<OrderResponse>.Ok(
