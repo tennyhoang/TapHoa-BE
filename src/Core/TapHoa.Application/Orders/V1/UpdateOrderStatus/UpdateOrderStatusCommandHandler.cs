@@ -119,10 +119,12 @@ public class UpdateOrderStatusCommandHandler(
         if (order.Status == OrderStatus.Completed)
         {
             await publisher.Publish(new OrderCompletedEvent(
-                OrderId:     order.Id,
-                UserId:      order.UserId,
-                TotalAmount: order.TotalAmount,
-                CompletedAt: order.CompletedAt!.Value
+                OrderId:          order.Id,
+                UserId:           order.UserId,
+                CustomerEmail:    order.User.Email,
+                CustomerFullName: order.User.FullName,
+                TotalAmount:      order.TotalAmount,
+                CompletedAt:      order.CompletedAt!.Value
             ), cancellationToken);
         }
 
