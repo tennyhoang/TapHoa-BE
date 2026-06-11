@@ -91,24 +91,31 @@ try
 
     // ── Health Checks ─────────────────────────────────────────────────────────
     var connStr   = builder.Configuration.GetConnectionString("DefaultConnection")!;
-    var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";
-    builder.Services.AddHealthChecks()
-        .AddNpgSql(connStr,       name: "database", tags: ["db",    "ready"])
-        .AddRedis(redisConn,      name: "redis",    tags: ["cache", "ready"]);
+    var redisConn = builder.Configuration["Redis:ConnectionString"];
+    var hc = builder.Services.AddHealthChecks()
+        .AddNpgSql(connStr, name: "database", tags: ["db", "ready"]);
+    if (!string.IsNullOrEmpty(redisConn) && !redisConn.StartsWith("localhost"))
+        hc.AddRedis(redisConn, name: "redis", tags: ["cache", "ready"]);
 
     // ── OpenTelemetry ─────────────────────────────────────────────────────────
-    var otlpEndpoint = builder.Configuration["OpenTelemetry:Endpoint"] ?? "http://localhost:4317";
+    var otlpEndpoint = builder.Configuration["OpenTelemetry:Endpoint"];
     var serviceName  = builder.Configuration["OpenTelemetry:ServiceName"] ?? "taphoa-api";
     builder.Services.AddOpenTelemetry()
         .ConfigureResource(r => r.AddService(serviceName))
-        .WithTracing(tracing => tracing
-            .AddAspNetCoreInstrumentation(o => o.RecordException = true)
-            .AddHttpClientInstrumentation()
-            .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)))
-        .WithMetrics(metrics => metrics
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation()
-            .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)));
+        .WithTracing(tracing =>
+        {
+            tracing.AddAspNetCoreInstrumentation(o => o.RecordException = true)
+                   .AddHttpClientInstrumentation();
+            if (!string.IsNullOrEmpty(otlpEndpoint))
+                tracing.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+        })
+        .WithMetrics(metrics =>
+        {
+            metrics.AddAspNetCoreInstrumentation()
+                   .AddHttpClientInstrumentation();
+            if (!string.IsNullOrEmpty(otlpEndpoint))
+                metrics.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+        });
 
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
