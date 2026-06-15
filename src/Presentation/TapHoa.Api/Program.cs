@@ -91,7 +91,8 @@ try
     builder.Services.AddHostedService<NightBatchJob>();
 
     // ── Health Checks ─────────────────────────────────────────────────────────
-    var connStr   = builder.Configuration.GetConnectionString("DefaultConnection")!;
+    var connStr   = PersistenceExtension.ToNpgsqlConnectionString(
+                        builder.Configuration.GetConnectionString("DefaultConnection")!);
     var redisConn = builder.Configuration["Redis:ConnectionString"];
     var hc = builder.Services.AddHealthChecks()
         .AddNpgSql(connStr, name: "database", tags: ["db", "ready"]);
