@@ -18,7 +18,7 @@ public class OrderPaidConsumerTests
             OrderId: Guid.NewGuid(),
             UserId: Guid.NewGuid(),
             Amount: 100_000m,
-            PaidAt: DateTimeOffset.UtcNow);
+            PaidAt: DateTime.UtcNow);
         var contextMock = new Mock<ConsumeContext<OrderPaidMessage>>();
         contextMock.Setup(c => c.Message).Returns(message);
 
