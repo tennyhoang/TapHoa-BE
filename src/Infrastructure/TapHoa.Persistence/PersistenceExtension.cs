@@ -31,7 +31,7 @@ public static class PersistenceExtension
 
     // Converts postgresql://user:pass@host/db?sslmode=require → Npgsql key-value format.
     // Passes through unchanged if already in key-value format.
-    private static string ToNpgsqlConnectionString(string connStr)
+    public static string ToNpgsqlConnectionString(string connStr)
     {
         if (!connStr.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase) &&
             !connStr.StartsWith("postgres://",   StringComparison.OrdinalIgnoreCase))
