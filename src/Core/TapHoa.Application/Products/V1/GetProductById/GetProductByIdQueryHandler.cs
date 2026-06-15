@@ -9,7 +9,8 @@ namespace TapHoa.Application.Products.V1.GetProductById;
 
 public class GetProductByIdQueryHandler(
     IRepository<Product> productRepo,
-    IDistributedCache cache)
+    IDistributedCache cache,
+    ICacheHelper cacheHelper)
     : IRequestHandler<GetProductByIdQuery, ProductResponse>
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(120);
@@ -17,7 +18,7 @@ public class GetProductByIdQueryHandler(
     public async Task<ProductResponse> Handle(GetProductByIdQuery request, CancellationToken cancellationToken)
     {
         var cacheKey = $"products:single:{request.Id}";
-        var cached = await CacheHelper.GetAsync<ProductResponse>(cache, cacheKey, cancellationToken);
+        var cached = await cacheHelper.GetAsync<ProductResponse>(cache, cacheKey, cancellationToken);
         if (cached is not null)
             return cached;
 
@@ -29,7 +30,7 @@ public class GetProductByIdQueryHandler(
             ?? throw new KeyNotFoundException("Không tìm thấy sản phẩm.");
 
         var result = GetProducts.GetProductsQueryHandler.MapToResponse(product);
-        await CacheHelper.SetAsync(cache, cacheKey, result, CacheTtl, cancellationToken);
+        await cacheHelper.SetAsync(cache, cacheKey, result, CacheTtl, cancellationToken);
         return result;
     }
 }

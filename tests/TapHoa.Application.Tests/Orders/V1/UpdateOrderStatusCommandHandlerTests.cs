@@ -2,6 +2,7 @@ using FluentAssertions;
 using MediatR;
 using MockQueryable.Moq;
 using Moq;
+using TapHoa.Application.Contracts;
 using TapHoa.Application.Orders.V1.UpdateOrderStatus;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Enums;
@@ -13,6 +14,9 @@ public class UpdateOrderStatusCommandHandlerTests
 {
     private readonly Mock<IRepository<Order>> _orderRepoMock = new();
     private readonly Mock<IHubInventoryRepository> _inventoryRepoMock = new();
+    private readonly Mock<IRepository<UserNotification>> _notificationRepoMock = new();
+    private readonly Mock<IRepository<InventoryTransaction>> _inventoryTxRepoMock = new();
+    private readonly Mock<IOrderStatusBroadcaster> _broadcasterMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
     private readonly UpdateOrderStatusCommandHandler _handler;
 
@@ -23,7 +27,9 @@ public class UpdateOrderStatusCommandHandlerTests
             .ReturnsAsync((HubInventory?)null);
 
         _handler = new UpdateOrderStatusCommandHandler(
-            _orderRepoMock.Object, _inventoryRepoMock.Object, _publisherMock.Object);
+            _orderRepoMock.Object, _inventoryRepoMock.Object,
+            _notificationRepoMock.Object, _inventoryTxRepoMock.Object,
+            _broadcasterMock.Object, _publisherMock.Object);
     }
 
     private static Order BuildOrder(OrderStatus status, Guid? id = null)

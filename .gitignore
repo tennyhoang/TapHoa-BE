@@ -27,6 +27,9 @@ storage/
 .cursor/
 .vscode/
 .idea/
+.agents/
+CLAUDE.md
+AGENTS.md
 
 # Seed / debug SQL (chỉ dùng local)
 *.sql

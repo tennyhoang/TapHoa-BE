@@ -23,6 +23,7 @@ using TapHoa.Api.Endpoints.V1.WarehouseManager;
 using TapHoa.Api.Endpoints.V1.Hubs;
 using TapHoa.Api.Endpoints.V1.Auth;
 using TapHoa.Api.Endpoints.V1.Vouchers;
+using TapHoa.Api.Endpoints.V1.Loyalty;
 using TapHoa.Api.Hubs;
 using TapHoa.Application.Contracts;
 using TapHoa.Api.Endpoints.V1.Cart;
@@ -244,12 +245,17 @@ try
     app.MapDriverEndpoints();
     app.MapClaimEndpoints();
     app.MapPaymentEndpoints();
+    app.MapVnpayPaymentEndpoints();
+    app.MapMomoPaymentEndpoints();
     app.MapWalletEndpoints();
     app.MapWarehouseEndpoints();
     app.MapAdminWarehouseEndpoints();
     app.MapWarehouseManagerEndpoints();
     app.MapNotificationEndpoints();
     app.MapVoucherEndpoints();
+    app.MapAdminVoucherEndpoints();
+    app.MapAdminPaymentEndpoints();
+    app.MapLoyaltyEndpoints();
 
     app.Run();
 }

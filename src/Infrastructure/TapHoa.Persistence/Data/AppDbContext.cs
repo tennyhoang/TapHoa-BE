@@ -31,6 +31,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<PushToken> PushTokens => Set<PushToken>();
     public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
+    public DbSet<LoyaltyAccount> LoyaltyAccounts => Set<LoyaltyAccount>();
+    public DbSet<LoyaltyTransaction> LoyaltyTransactions => Set<LoyaltyTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -328,6 +330,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(pt => pt.Token).HasMaxLength(200).IsRequired();
             e.HasIndex(pt => pt.Token).IsUnique();
             e.Property(pt => pt.Platform).HasMaxLength(10);
+        });
+
+        modelBuilder.Entity<LoyaltyAccount>(e =>
+        {
+            e.HasIndex(la => la.UserId).IsUnique();
+            e.Property(la => la.PointsBalance).HasDefaultValue(0);
+            e.Property(la => la.TotalEarned).HasDefaultValue(0);
+            e.Property(la => la.TotalRedeemed).HasDefaultValue(0);
+
+            e.HasOne(la => la.User)
+             .WithMany()
+             .HasForeignKey(la => la.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LoyaltyTransaction>(e =>
+        {
+            e.Property(lt => lt.Type).HasMaxLength(20).IsRequired();
+            e.Property(lt => lt.Description).HasMaxLength(200).IsRequired();
+            e.HasIndex(lt => lt.UserId);
         });
     }
 

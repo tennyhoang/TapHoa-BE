@@ -13,7 +13,8 @@ namespace TapHoa.Application.Products.V1.GetProducts;
 public class GetProductsQueryHandler(
     IRepository<Product> productRepo,
     IRepository<Hub> hubRepo,
-    IDistributedCache cache)
+    IDistributedCache cache,
+    ICacheHelper cacheHelper)
     : IRequestHandler<GetProductsQuery, PagedResult<ProductResponse>>
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
@@ -32,7 +33,7 @@ public class GetProductsQueryHandler(
 
         // ── Cache ──────────────────────────────────────────────────────────────
         var cacheKey = GetCacheKey(request);
-        var cached = await CacheHelper.GetAsync<PagedResult<ProductResponse>>(cache, cacheKey, cancellationToken);
+        var cached = await cacheHelper.GetAsync<PagedResult<ProductResponse>>(cache, cacheKey, cancellationToken);
         if (cached is not null)
             return cached;
 
@@ -104,7 +105,7 @@ public class GetProductsQueryHandler(
             PageSize = request.PageSize
         };
 
-        await CacheHelper.SetAsync(cache, cacheKey, result, CacheTtl, cancellationToken);
+        await cacheHelper.SetAsync(cache, cacheKey, result, CacheTtl, cancellationToken);
         return result;
     }
 

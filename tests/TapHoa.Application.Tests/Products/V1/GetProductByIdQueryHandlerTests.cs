@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Caching.Distributed;
 using MockQueryable.Moq;
 using Moq;
+using TapHoa.Application.Common;
 using TapHoa.Application.Products.V1.GetProductById;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Repositories;
@@ -12,11 +13,12 @@ public class GetProductByIdQueryHandlerTests
 {
     private readonly Mock<IRepository<Product>> _productRepoMock = new();
     private readonly Mock<IDistributedCache> _cacheMock = new();
+    private readonly Mock<ICacheHelper> _cacheHelperMock = new();
     private readonly GetProductByIdQueryHandler _handler;
 
     public GetProductByIdQueryHandlerTests()
     {
-        _handler = new GetProductByIdQueryHandler(_productRepoMock.Object, _cacheMock.Object);
+        _handler = new GetProductByIdQueryHandler(_productRepoMock.Object, _cacheMock.Object, _cacheHelperMock.Object);
     }
 
     [Fact]

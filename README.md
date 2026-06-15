@@ -175,12 +175,14 @@ InHub_ReadyForPickup
 - **Đặt hàng** — Validate Hub, kiểm stock atomic, hỗ trợ thanh toán ví một phần (`UseWallet`)
 - **Flash Sale** — Phiên theo khung giờ, giá/stock độc lập mỗi phiên, tự động deactivate khi hết giờ
 - **Ví điện tử** — Nạp qua VietQR / SePay webhook, rút về ngân hàng, lịch sử giao dịch
+- **Loyalty Points** — Tích điểm theo đơn hàng, quy đổi điểm khi thanh toán *(đang phát triển)*
 - **Hub & Logistics** — Agent xác nhận hàng đến, báo cáo hàng lỗi; Driver lấy từ kho và vận chuyển
 - **Tối ưu lộ trình** — OpenRouteService TSP + Nominatim geocoding, trả về thứ tự hub tối ưu cho Driver
 - **Kho vận** — CRUD kho, gán Driver và WarehouseManager theo kho, kho tự động resolve khi Driver optimize route
 - **Khiếu nại & Hoàn tiền** — Customer tạo claim kèm ảnh, Admin duyệt → chuyển `Refunded`
 - **Đánh giá** — Sau khi nhận hàng, qua kiểm duyệt Groq AI (sentiment: Positive/Neutral/Negative)
 - **Bài viết** — AI tạo tiêu đề + nội dung + prompt ảnh qua Groq, hỗ trợ markdown
+- **Real-time** — SignalR hub cho trạng thái đơn hàng (Customer) và order board (Admin)
 - **Thống kê** — Revenue by date range, order count, top products cho Admin dashboard
 - **API Docs** — Scalar UI với Bearer auth pre-configured tại `/scalar/v1`
 

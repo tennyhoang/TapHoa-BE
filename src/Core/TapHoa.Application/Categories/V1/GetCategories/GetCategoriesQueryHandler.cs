@@ -9,14 +9,15 @@ namespace TapHoa.Application.Categories.V1.GetCategories;
 
 public class GetCategoriesQueryHandler(
     IRepository<Category> categoryRepo,
-    IDistributedCache cache)
+    IDistributedCache cache,
+    ICacheHelper cacheHelper)
     : IRequestHandler<GetCategoriesQuery, List<CategoryResponse>>
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
     public async Task<List<CategoryResponse>> Handle(GetCategoriesQuery request, CancellationToken cancellationToken)
     {
-        var cached = await CacheHelper.GetAsync<List<CategoryResponse>>(cache, CacheKeys.CategoriesAll, cancellationToken);
+        var cached = await cacheHelper.GetAsync<List<CategoryResponse>>(cache, CacheKeys.CategoriesAll, cancellationToken);
         if (cached is not null)
             return cached;
 
@@ -26,7 +27,7 @@ public class GetCategoriesQueryHandler(
             .ToListAsync(cancellationToken);
 
         var result = categories.Select(MapToResponse).ToList();
-        await CacheHelper.SetAsync(cache, CacheKeys.CategoriesAll, result, CacheTtl, cancellationToken);
+        await cacheHelper.SetAsync(cache, CacheKeys.CategoriesAll, result, CacheTtl, cancellationToken);
         return result;
     }
 

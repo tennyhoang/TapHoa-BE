@@ -8,5 +8,6 @@ public record CreateOrderCommand(
     string? Note,
     string PaymentMethod = "BankTransfer",
     bool UseWallet = false,
-    string? VoucherCode = null
+    string? VoucherCode = null,
+    int PointsToRedeem = 0
 ) : IRequest<OrderResponse>;

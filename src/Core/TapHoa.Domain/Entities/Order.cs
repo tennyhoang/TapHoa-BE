@@ -12,6 +12,7 @@ public class Order : BaseEntity
     public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
     public string? Note { get; set; }
     public string? CancelReason { get; private set; }
+    public string? PaymentMethod { get; set; }       // Phương thức thanh toán: BankTransfer, Vnpay, Momo, COD, Wallet
     public string? PaymentRef { get; set; }          // Mã tham chiếu chuyển khoản, e.g. TH2685894A
     public decimal WalletAmountUsed { get; set; } = 0; // Số tiền đã trừ từ ví (0 nếu không dùng ví)
     public string? DeliveryPhotoUrl { get; private set; }
@@ -33,11 +34,17 @@ public class Order : BaseEntity
     public ICollection<OrderItem> Items { get; set; } = [];
     public ICollection<OrderClaim> Claims { get; set; } = [];
 
-    // SePay webhook xác nhận chuyển khoản thành công
+    // Đặt trạng thái chờ cổng thanh toán (VNPay/MoMo) xác nhận
+    public void MarkAwaitingPayment()
+    {
+        Status = OrderStatus.AwaitingPayment;
+    }
+
+    // SePay webhook hoặc IPN xác nhận thanh toán thành công
     public void ConfirmPayment()
     {
         GuardTerminal();
-        if (Status != OrderStatus.PendingPayment)
+        if (Status is not (OrderStatus.PendingPayment or OrderStatus.AwaitingPayment))
             throw new OrderDomainException($"Đơn hàng không ở trạng thái chờ thanh toán (trạng thái hiện tại: '{Status}').");
         Status = OrderStatus.Paid_WaitingForBatch;
         PaidAt = DateTime.UtcNow;
@@ -86,7 +93,7 @@ public class Order : BaseEntity
     public void Cancel(string? reason = null)
     {
         GuardTerminal();
-        if (Status != OrderStatus.PendingPayment && Status != OrderStatus.Paid_WaitingForBatch)
+        if (Status is not (OrderStatus.PendingPayment or OrderStatus.Paid_WaitingForBatch or OrderStatus.AwaitingPayment))
             throw new OrderDomainException("Chỉ có thể hủy đơn hàng đang chờ thanh toán hoặc chờ gom hàng.");
         Status = OrderStatus.Cancelled;
         CancelledAt = DateTime.UtcNow;

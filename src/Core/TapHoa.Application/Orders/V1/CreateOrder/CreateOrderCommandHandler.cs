@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using TapHoa.Application.Contracts;
+using TapHoa.Application.Loyalty;
 using TapHoa.Domain.Entities;
 using TapHoa.Domain.Enums;
 using TapHoa.Domain.Repositories;
@@ -16,8 +18,10 @@ public class CreateOrderCommandHandler(
     IRepository<Voucher> voucherRepo,
     IFlashSaleRepository flashSaleRepo,
     IRepository<InventoryTransaction> inventoryTxRepo,
+    ILoyaltyRepository loyaltyRepo,
     IUnitOfWork unitOfWork,
-    IEmailService emailService)
+    IEmailService emailService,
+    IOptions<LoyaltyOptions> options)
     : IRequestHandler<CreateOrderCommand, OrderResponse>
 {
     public async Task<OrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -97,8 +101,10 @@ public class CreateOrderCommandHandler(
         // ── Shipping fee (waived when totalAmount >= FreeShippingThreshold) ────
         var shippingFee = totalAmount >= hub.FreeShippingThreshold ? 0m : hub.ShippingFee;
         totalAmount += shippingFee;
-        var isCod    = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
-        var isWallet = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
+        var isCod         = string.Equals(request.PaymentMethod, "COD",    StringComparison.OrdinalIgnoreCase);
+        var isWallet      = string.Equals(request.PaymentMethod, "Wallet", StringComparison.OrdinalIgnoreCase);
+        var isVnpayOrMomo = string.Equals(request.PaymentMethod, "Vnpay", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(request.PaymentMethod, "Momo",  StringComparison.OrdinalIgnoreCase);
 
         // ── BR-014: Voucher discount ──────────────────────────────────────────
         decimal voucherDiscount = 0;
@@ -134,6 +140,26 @@ public class CreateOrderCommandHandler(
             totalAmount -= voucherDiscount;
         }
 
+        // ── Points redemption (1 point = 200 VND) ──────────────────────────────
+        int pointsRedeemed = 0;
+        decimal pointsDiscount = 0;
+        if (request.PointsToRedeem > 0)
+        {
+            var loyaltyAccount = await loyaltyRepo.GetAccountAsync(request.UserId, cancellationToken);
+            if (loyaltyAccount is null)
+                throw new InvalidOperationException("Tài khoản điểm tích lũy không tồn tại.");
+
+            var maxDiscount = totalAmount;
+            var rawDiscount = request.PointsToRedeem * options.Value.RedeemValuePerPoint;
+            pointsDiscount = Math.Min(rawDiscount, maxDiscount);
+            pointsRedeemed = (int)Math.Ceiling(pointsDiscount / options.Value.RedeemValuePerPoint);
+
+            if (loyaltyAccount.PointsBalance < pointsRedeemed)
+                throw new InvalidOperationException("Không đủ điểm tích lũy để đổi.");
+
+            totalAmount -= pointsDiscount;
+        }
+
         User? buyer = null;
         decimal walletAmountUsed = 0;
 
@@ -164,9 +190,13 @@ public class CreateOrderCommandHandler(
             Note             = request.Note,
             Items            = orderItems,
             PaymentRef       = paymentRef,
+            PaymentMethod    = request.PaymentMethod,
         };
 
-        if (!needsBankTransfer) order.ConfirmPayment();
+        if (isVnpayOrMomo)
+            order.MarkAwaitingPayment();
+        else if (!needsBankTransfer)
+            order.ConfirmPayment();
 
         // ── Transaction: atomically decrement flash sale stock + persist order ──
         await using var tx = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -209,6 +239,11 @@ public class CreateOrderCommandHandler(
                 await walletTransactionRepo.SaveChangesAsync();
             }
 
+            if (pointsRedeemed > 0)
+            {
+                await loyaltyRepo.RedeemAsync(request.UserId, pointsRedeemed, orderId, cancellationToken);
+            }
+
             await tx.CommitAsync(cancellationToken);
         }
         catch
@@ -220,7 +255,7 @@ public class CreateOrderCommandHandler(
         // ── Confirmation email (fire-and-forget, non-blocking) ─────────────────
         _ = SendConfirmationEmailAsync(request.UserId, order, hub, cartItems, shippingFee, voucherDiscount);
 
-        return MapToResponse(order, hub, cartItems, shippingFee, voucherDiscount);
+        return MapToResponse(order, hub, cartItems, shippingFee, voucherDiscount, pointsRedeemed, pointsDiscount);
     }
 
     private async Task SendConfirmationEmailAsync(
@@ -259,7 +294,8 @@ public class CreateOrderCommandHandler(
     }
 
     internal static OrderResponse MapToResponse(Order o, Hub hub, List<CartItem>? cartItems = null,
-        decimal shippingFee = 0m, decimal voucherDiscount = 0m) => new(
+        decimal shippingFee = 0m, decimal voucherDiscount = 0m,
+        int pointsRedeemed = 0, decimal pointsDiscount = 0m) => new(
         o.Id, o.Status, o.TotalAmount, o.WalletAmountUsed, o.Note,
         new HubInfo(hub.Id, hub.Name, hub.Address, hub.Ward, hub.District, hub.City, hub.Latitude, hub.Longitude),
         o.Items.Select(i =>
@@ -284,6 +320,8 @@ public class CreateOrderCommandHandler(
         o.CancelledAt,
         o.RefundedAt,
         shippingFee,
-        voucherDiscount
+        voucherDiscount,
+        pointsRedeemed,
+        pointsDiscount
     );
 }

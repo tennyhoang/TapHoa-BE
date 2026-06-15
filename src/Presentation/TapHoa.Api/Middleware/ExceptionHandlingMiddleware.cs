@@ -1,4 +1,6 @@
-using Microsoft.Extensions.Logging;
+using System.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using TapHoa.Application.Common;
 using TapHoa.Domain.Exceptions;
 
 namespace TapHoa.Api.Middleware;
@@ -11,37 +13,68 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         {
             await next(context);
         }
+        catch (RequestValidationException ex)
+        {
+            await WriteProblem(context, StatusCodes.Status400BadRequest,
+                "Validation failed",
+                "One or more validation errors occurred.",
+                errors: ex.Failures.ToDictionary(
+                    f => f.PropertyName,
+                    f => (object[]) [f.ErrorMessage]));
+        }
         catch (KeyNotFoundException ex)
         {
-            await WriteError(context, StatusCodes.Status404NotFound, ex.Message);
+            await WriteProblem(context, StatusCodes.Status404NotFound, "Not Found", ex.Message);
         }
         catch (UnauthorizedAccessException ex)
         {
-            await WriteError(context, StatusCodes.Status401Unauthorized, ex.Message);
+            await WriteProblem(context, StatusCodes.Status401Unauthorized, "Unauthorized", ex.Message);
         }
         catch (OrderDomainException ex)
         {
-            await WriteError(context, StatusCodes.Status422UnprocessableEntity, ex.Message);
+            await WriteProblem(context, StatusCodes.Status422UnprocessableEntity, "Unprocessable Entity", ex.Message);
         }
         catch (InvalidOperationException ex)
         {
-            await WriteError(context, StatusCodes.Status409Conflict, ex.Message);
+            await WriteProblem(context, StatusCodes.Status409Conflict, "Conflict", ex.Message);
         }
         catch (ArgumentException ex)
         {
-            await WriteError(context, StatusCodes.Status400BadRequest, ex.Message);
+            await WriteProblem(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unhandled exception for {Method} {Path}", context.Request.Method, context.Request.Path);
-            await WriteError(context, StatusCodes.Status500InternalServerError, "Đã xảy ra lỗi, vui lòng thử lại.");
+            await WriteProblem(context, StatusCodes.Status500InternalServerError,
+                "Internal Server Error", "Đã xảy ra lỗi, vui lòng thử lại.");
         }
     }
 
-    private static async Task WriteError(HttpContext context, int statusCode, string message)
+    private static async Task WriteProblem(
+        HttpContext context,
+        int statusCode,
+        string title,
+        string detail,
+        Dictionary<string, object[]>? errors = null)
     {
         context.Response.StatusCode = statusCode;
-        context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(new { message });
+
+        var problem = new ProblemDetails
+        {
+            Type = $"https://httpstatuses.io/{statusCode}",
+            Title = title,
+            Status = statusCode,
+            Detail = detail,
+            Instance = context.Request.Path,
+            Extensions =
+            {
+                ["traceId"] = Activity.Current?.Id ?? context.TraceIdentifier
+            }
+        };
+
+        if (errors is not null)
+            problem.Extensions["errors"] = errors;
+
+        await context.Response.WriteAsJsonAsync(problem, options: null, contentType: "application/problem+json");
     }
 }

@@ -14,9 +14,9 @@ public static class FlashSaleEndpoints
     {
         var group = app.MapGroup("/api/v1/flash-sale").WithTags("Flash Sale");
 
-        group.MapGet("/current", async (AppDbContext db, IDistributedCache cache) =>
+        group.MapGet("/current", async (AppDbContext db, IDistributedCache cache, ICacheHelper cacheHelper) =>
         {
-            var cached = await CacheHelper.GetAsync<FlashSaleCurrentResponse>(cache, CacheKeys.FlashSaleCurrent);
+            var cached = await cacheHelper.GetAsync<FlashSaleCurrentResponse>(cache, CacheKeys.FlashSaleCurrent);
             if (cached is not null)
                 return Results.Ok(cached);
 
@@ -54,7 +54,7 @@ public static class FlashSaleEndpoints
                     .ToList()
             );
 
-            await CacheHelper.SetAsync(cache, CacheKeys.FlashSaleCurrent, result, CacheTtl);
+            await cacheHelper.SetAsync(cache, CacheKeys.FlashSaleCurrent, result, CacheTtl);
             return Results.Ok(result);
         });
     }
