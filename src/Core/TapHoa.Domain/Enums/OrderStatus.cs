@@ -3,6 +3,7 @@ namespace TapHoa.Domain.Enums;
 public enum OrderStatus
 {
     PendingPayment,         // Chờ thanh toán (chuyển khoản)
+    AwaitingPayment,        // Chờ cổng thanh toán (VNPay/MoMo) xác nhận
     Paid_WaitingForBatch,   // Đã thanh toán, chờ gom hàng tại kho
     PackedAtWarehouse,      // Kho đã đóng gói, chờ tài xế lấy hàng
     ShippingToHub,          // Driver đang giao đến Hub

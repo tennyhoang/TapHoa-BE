@@ -3,6 +3,19 @@ using MediatR;
 
 namespace TapHoa.Application.Common;
 
+public class ValidationFailure
+{
+    public required string PropertyName { get; init; }
+    public required string ErrorMessage { get; init; }
+    public string? AttemptedValue { get; init; }
+}
+
+public class RequestValidationException(IReadOnlyList<ValidationFailure> failures)
+    : Exception("Validation failed.")
+{
+    public IReadOnlyList<ValidationFailure> Failures { get; } = failures;
+}
+
 public class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
@@ -20,11 +33,17 @@ public class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TReq
         var failures = validators
             .Select(v => v.Validate(context))
             .SelectMany(r => r.Errors)
-            .Where(f => f != null)
+            .Where(f => f is not null)
+            .Select(f => new ValidationFailure
+            {
+                PropertyName = f.PropertyName,
+                ErrorMessage = f.ErrorMessage,
+                AttemptedValue = f.AttemptedValue?.ToString()
+            })
             .ToList();
 
         if (failures.Count > 0)
-            throw new ArgumentException(string.Join("; ", failures.Select(f => f.ErrorMessage)));
+            throw new RequestValidationException(failures);
 
         return await next(cancellationToken);
     }

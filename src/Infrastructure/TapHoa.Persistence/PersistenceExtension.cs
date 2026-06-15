@@ -23,6 +23,7 @@ public static class PersistenceExtension
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IHubInventoryRepository, HubInventoryRepository>();
         services.AddScoped<IFlashSaleRepository, FlashSaleRepository>();
+        services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;

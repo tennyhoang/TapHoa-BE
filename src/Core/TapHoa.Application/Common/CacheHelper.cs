@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
 
 namespace TapHoa.Application.Common;
 
@@ -9,14 +10,20 @@ public static class CacheKeys
     public const string FlashSaleCurrent = "flashsale:current";
 }
 
-public static class CacheHelper
+public interface ICacheHelper
+{
+    Task<T?> GetAsync<T>(IDistributedCache cache, string key, CancellationToken ct = default) where T : class;
+    Task SetAsync<T>(IDistributedCache cache, string key, T value, TimeSpan ttl, CancellationToken ct = default);
+}
+
+public class CacheHelper(ILogger<CacheHelper> logger) : ICacheHelper
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public static async Task<T?> GetAsync<T>(IDistributedCache cache, string key, CancellationToken ct = default) where T : class
+    public async Task<T?> GetAsync<T>(IDistributedCache cache, string key, CancellationToken ct = default) where T : class
     {
         try
         {
@@ -24,13 +31,14 @@ public static class CacheHelper
             if (bytes is null || bytes.Length == 0) return null;
             return JsonSerializer.Deserialize<T>(bytes, JsonOptions);
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogWarning(ex, "Cache read failed for key {CacheKey}", key);
             return null;
         }
     }
 
-    public static async Task SetAsync<T>(IDistributedCache cache, string key, T value, TimeSpan ttl, CancellationToken ct = default)
+    public async Task SetAsync<T>(IDistributedCache cache, string key, T value, TimeSpan ttl, CancellationToken ct = default)
     {
         try
         {
@@ -40,9 +48,9 @@ public static class CacheHelper
                 AbsoluteExpirationRelativeToNow = ttl
             }, ct);
         }
-        catch
+        catch (Exception ex)
         {
-            // Redis unavailable — skip caching, serve from DB
+            logger.LogWarning(ex, "Cache write failed for key {CacheKey}", key);
         }
     }
 }

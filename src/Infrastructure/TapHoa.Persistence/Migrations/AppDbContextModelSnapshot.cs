@@ -376,6 +376,82 @@ namespace TapHoa.Persistence.Migrations
                     b.ToTable("InventoryTransactions");
                 });
 
+            modelBuilder.Entity("TapHoa.Domain.Entities.LoyaltyAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PointsBalance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("TotalEarned")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("TotalRedeemed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("LoyaltyAccounts");
+                });
+
+            modelBuilder.Entity("TapHoa.Domain.Entities.LoyaltyTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Points")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("LoyaltyTransactions");
+                });
+
             modelBuilder.Entity("TapHoa.Domain.Entities.Order", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1259,6 +1335,17 @@ namespace TapHoa.Persistence.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("TapHoa.Domain.Entities.LoyaltyAccount", b =>
+                {
+                    b.HasOne("TapHoa.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TapHoa.Domain.Entities.Order", b =>
                 {
                     b.HasOne("TapHoa.Domain.Entities.Hub", "Hub")
@@ -1494,17 +1581,6 @@ namespace TapHoa.Persistence.Migrations
                 });
 
             modelBuilder.Entity("TapHoa.Domain.Entities.WithdrawRequest", b =>
-                {
-                    b.HasOne("TapHoa.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("TapHoa.Domain.Entities.PushToken", b =>
                 {
                     b.HasOne("TapHoa.Domain.Entities.User", "User")
                         .WithMany()

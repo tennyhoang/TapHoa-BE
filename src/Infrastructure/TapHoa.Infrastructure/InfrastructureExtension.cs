@@ -6,12 +6,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Resend;
 using TapHoa.Application.Contracts;
+using TapHoa.Application.Loyalty;
 using TapHoa.Infrastructure.Auth;
 using TapHoa.Infrastructure.Cloudinary;
 using TapHoa.Infrastructure.Moderation;
 using TapHoa.Infrastructure.Notifications;
 using TapHoa.Infrastructure.Payment;
 using TapHoa.Infrastructure.RouteOptimization;
+using TapHoa.Application.Payment;
 
 namespace TapHoa.Infrastructure;
 
@@ -48,6 +50,11 @@ public static class InfrastructureExtension
         services.AddScoped<ICloudinaryService, CloudinaryService>();
 
         services.Configure<SepayOptions>(configuration.GetSection(SepayOptions.Section));
+        services.Configure<VnpayOptions>(configuration.GetSection(VnpayOptions.Section));
+        services.Configure<MomoOptions>(configuration.GetSection(MomoOptions.Section));
+        services.AddScoped<IVnpayService, VnpayService>();
+        services.AddScoped<IMomoService, MomoService>();
+        services.Configure<LoyaltyOptions>(configuration.GetSection(LoyaltyOptions.Section));
 
         var redisConn = configuration["Redis:ConnectionString"];
         if (!string.IsNullOrWhiteSpace(redisConn))

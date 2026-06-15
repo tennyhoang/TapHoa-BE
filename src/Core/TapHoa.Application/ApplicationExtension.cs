@@ -17,6 +17,8 @@ public static class ApplicationExtension
 
         services.AddValidatorsFromAssembly(typeof(ApplicationExtension).Assembly);
 
+        services.AddSingleton<ICacheHelper, CacheHelper>();
+
         return services;
     }
 }

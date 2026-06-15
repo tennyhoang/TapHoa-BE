@@ -40,5 +40,7 @@ public record OrderResponse(
     DateTime? CancelledAt,
     DateTime? RefundedAt,
     decimal ShippingFee = 0m,
-    decimal VoucherDiscount = 0m
+    decimal VoucherDiscount = 0m,
+    int PointsRedeemed = 0,
+    decimal PointsDiscount = 0m
 );
