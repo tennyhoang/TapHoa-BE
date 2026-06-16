@@ -11,8 +11,15 @@ public static class AdminFlashSaleEndpoints
 {
     private static async Task EvictFlashSaleCache(HttpContext context)
     {
-        var cache = context.RequestServices.GetRequiredService<IDistributedCache>();
-        await cache.RemoveAsync(CacheKeys.FlashSaleCurrent);
+        try
+        {
+            var cache = context.RequestServices.GetRequiredService<IDistributedCache>();
+            await cache.RemoveAsync(CacheKeys.FlashSaleCurrent);
+        }
+        catch
+        {
+            // Cache eviction failure must not break the response
+        }
     }
 
     public static void MapAdminFlashSaleEndpoints(this IEndpointRouteBuilder app)
