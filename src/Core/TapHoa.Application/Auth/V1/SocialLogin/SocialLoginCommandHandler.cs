@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using TapHoa.Application.Auth.V1.Login;
 using TapHoa.Application.Contracts;
 using TapHoa.Domain.Entities;
@@ -11,14 +12,15 @@ namespace TapHoa.Application.Auth.V1.SocialLogin;
 public class SocialLoginCommandHandler(
     IRepository<User> userRepo,
     IRepository<RefreshToken> refreshTokenRepo,
-    IJwtService jwtService)
+    IJwtService jwtService,
+    IConfiguration configuration)
     : IRequestHandler<SocialLoginCommand, LoginResponse>
 {
     public async Task<LoginResponse> Handle(SocialLoginCommand request, CancellationToken cancellationToken)
     {
         var (email, fullName, avatarUrl) = request.Provider switch
         {
-            "Google"   => await VerifyGoogleAsync(request.Token, cancellationToken),
+            "Google"   => await VerifyGoogleAsync(request.Token, configuration["Google:ClientId"], cancellationToken),
             "Facebook" => await VerifyFacebookAsync(request.Token, cancellationToken),
             _          => throw new ArgumentException($"Provider không hợp lệ: {request.Provider}")
         };
@@ -29,10 +31,10 @@ public class SocialLoginCommandHandler(
         {
             user = new User
             {
-                FullName    = fullName,
-                Email       = email,
-                PasswordHash = string.Empty,   // social-only account has no password
-                AvatarUrl   = avatarUrl,
+                FullName     = fullName,
+                Email        = email,
+                PasswordHash = string.Empty,
+                AvatarUrl    = avatarUrl,
             };
             await userRepo.AddAsync(user);
             await userRepo.SaveChangesAsync();
@@ -44,8 +46,8 @@ public class SocialLoginCommandHandler(
 
         var refreshTokenEntity = new RefreshToken
         {
-            UserId = user.Id,
-            Token = jwtService.GenerateRefreshToken(),
+            UserId    = user.Id,
+            Token     = jwtService.GenerateRefreshToken(),
             ExpiresAt = DateTime.UtcNow.AddDays(30),
         };
 
@@ -63,9 +65,8 @@ public class SocialLoginCommandHandler(
     }
 
     // ── Google ────────────────────────────────────────────────────────────────
-    // Supports both id_token (mobile, JWT format) and access_token (web OAuth)
     private static async Task<(string email, string fullName, string? avatarUrl)>
-        VerifyGoogleAsync(string token, CancellationToken ct)
+        VerifyGoogleAsync(string token, string? expectedClientId, CancellationToken ct)
     {
         using var http = new HttpClient();
 
@@ -73,13 +74,17 @@ public class SocialLoginCommandHandler(
 
         if (token.StartsWith("eyJ", StringComparison.Ordinal))
         {
-            // JWT id_token — verify via tokeninfo
+            // JWT id_token — verify via tokeninfo endpoint
             info = await http.GetFromJsonAsync<GoogleTokenInfo>(
                 $"https://oauth2.googleapis.com/tokeninfo?id_token={token}", ct);
+
+            // Validate audience to prevent cross-app token reuse attacks
+            if (!string.IsNullOrEmpty(expectedClientId) && info?.Aud != expectedClientId)
+                throw new UnauthorizedAccessException("Google token không hợp lệ cho ứng dụng này.");
         }
         else
         {
-            // OAuth access_token — fetch user info
+            // OAuth access_token — fetch user info (no aud claim to validate here)
             http.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
             info = await http.GetFromJsonAsync<GoogleTokenInfo>(
@@ -110,6 +115,7 @@ public class SocialLoginCommandHandler(
     // ── Private DTO records ───────────────────────────────────────────────────
     private sealed class GoogleTokenInfo
     {
+        [JsonPropertyName("aud")]     public string? Aud     { get; init; }
         [JsonPropertyName("email")]   public string? Email   { get; init; }
         [JsonPropertyName("name")]    public string? Name    { get; init; }
         [JsonPropertyName("picture")] public string? Picture { get; init; }

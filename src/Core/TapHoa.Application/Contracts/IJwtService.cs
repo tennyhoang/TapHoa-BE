@@ -6,5 +6,5 @@ public interface IJwtService
 {
     string GenerateToken(User user);
     string GenerateRefreshToken();
-    Guid? ValidateRefreshToken(string refreshToken);
+    bool IsValidRefreshTokenFormat(string refreshToken);
 }

@@ -13,12 +13,12 @@ public class RefreshTokenCommandHandler(
 {
     public async Task<LoginResponse> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
-        var userId = jwtService.ValidateRefreshToken(request.RefreshToken);
-        if (userId is null)
+        if (!jwtService.IsValidRefreshTokenFormat(request.RefreshToken))
             throw new UnauthorizedAccessException("Refresh token không hợp lệ hoặc đã hết hạn.");
 
+        // Lookup by token string only — userId is derived from the stored record, not the token itself
         var storedToken = await refreshTokenRepo.FindAsync(rt =>
-            rt.Token == request.RefreshToken && rt.UserId == userId && !rt.IsRevoked);
+            rt.Token == request.RefreshToken && !rt.IsRevoked);
 
         if (storedToken is null)
             throw new UnauthorizedAccessException("Refresh token không tồn tại hoặc đã bị thu hồi.");
@@ -26,18 +26,17 @@ public class RefreshTokenCommandHandler(
         if (storedToken.ExpiresAt < DateTime.UtcNow)
             throw new UnauthorizedAccessException("Refresh token đã hết hạn.");
 
-        var user = await userRepo.GetByIdAsync(userId.Value)
+        var user = await userRepo.GetByIdAsync(storedToken.UserId)
             ?? throw new UnauthorizedAccessException("Người dùng không tồn tại.");
 
         if (!user.IsActive)
             throw new UnauthorizedAccessException("Tài khoản đã bị vô hiệu hóa.");
 
-        // Revoke old refresh token (token rotation)
+        // Revoke old token (rotation)
         storedToken.IsRevoked = true;
         storedToken.RevokedAt = DateTime.UtcNow;
         refreshTokenRepo.Update(storedToken);
 
-        // Generate new tokens
         var newRefreshToken = new RefreshToken
         {
             UserId = user.Id,

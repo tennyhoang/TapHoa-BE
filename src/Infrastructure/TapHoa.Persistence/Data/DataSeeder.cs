@@ -90,14 +90,6 @@ public static class DataSeeder
             },
             new User
             {
-                FullName     = "Tuấn",
-                Email        = "ttuan0147@gmail.com",
-                PasswordHash = pw,
-                Role         = UserRole.Admin,
-                PhoneNumber  = "0901000008"
-            },
-            new User
-            {
                 FullName     = "Agent Quận 1",
                 Email        = "agent.q1@taphoa.vn",
                 PasswordHash = pw,

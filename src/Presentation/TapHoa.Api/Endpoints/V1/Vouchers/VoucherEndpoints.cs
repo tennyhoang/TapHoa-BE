@@ -1,6 +1,5 @@
 using MediatR;
 using TapHoa.Application.Vouchers.V1.ValidateVoucher;
-using TapHoa.Domain.Enums;
 
 namespace TapHoa.Api.Endpoints.V1.Vouchers;
 
@@ -16,7 +15,7 @@ public static class VoucherEndpoints
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
-        });
+        }).RequireAuthorization().RequireRateLimiting("VoucherPolicy");
     }
 }
 

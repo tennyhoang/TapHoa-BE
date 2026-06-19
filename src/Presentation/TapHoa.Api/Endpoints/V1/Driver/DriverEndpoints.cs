@@ -27,10 +27,9 @@ public static class DriverEndpoints
 
         group.MapGet("/active-orders", async (ClaimsPrincipal user, IMediator mediator) =>
         {
-            if (!TryGetHubId(user, out var hubId))
-                return Results.Forbid();
+            var driverId = GetUserId(user);
 
-            var result = await mediator.Send(new GetDriverActiveOrdersQuery(hubId));
+            var result = await mediator.Send(new GetDriverActiveOrdersQuery(driverId));
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
@@ -58,9 +57,10 @@ public static class DriverEndpoints
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
         });
 
-        group.MapGet("/orders/shipping", async (IMediator mediator, int page = 1, int pageSize = 50) =>
+        group.MapGet("/orders/shipping", async (ClaimsPrincipal user, IMediator mediator, int page = 1, int pageSize = 50) =>
         {
-            var result = await mediator.Send(new GetDriverShippingOrdersQuery(page, pageSize));
+            var driverId = GetUserId(user);
+            var result = await mediator.Send(new GetDriverShippingOrdersQuery(driverId, page, pageSize));
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
@@ -107,9 +107,11 @@ public static class DriverEndpoints
         group.MapPatch("/orders/{orderId:guid}/delivery-failure", async (
             Guid orderId,
             DeliveryFailureRequest body,
+            ClaimsPrincipal user,
             IMediator mediator) =>
         {
-            var result = await mediator.Send(new ReportDeliveryFailureCommand(orderId, body.Reason));
+            var driverId = GetUserId(user);
+            var result = await mediator.Send(new ReportDeliveryFailureCommand(orderId, driverId, body.Reason));
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : Results.BadRequest(new { result.Error, result.ErrorCode });
@@ -130,17 +132,6 @@ public static class DriverEndpoints
 
     private static Guid GetUserId(ClaimsPrincipal user) =>
         Guid.Parse(user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-    private static bool TryGetHubId(ClaimsPrincipal user, out Guid hubId)
-    {
-        var raw = user.FindFirstValue("hub_id");
-        if (raw is null || !Guid.TryParse(raw, out hubId))
-        {
-            hubId = Guid.Empty;
-            return false;
-        }
-        return true;
-    }
 }
 
 public record PickupRequest(List<Guid> OrderIds);

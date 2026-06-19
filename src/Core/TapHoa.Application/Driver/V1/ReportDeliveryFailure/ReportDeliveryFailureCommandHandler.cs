@@ -28,6 +28,9 @@ public class ReportDeliveryFailureCommandHandler(
         if (order is null)
             return Result<DeliveryFailureResponse>.Fail("Không tìm thấy đơn hàng.", "ORDER_NOT_FOUND");
 
+        if (order.AssignedDriverId != request.DriverId)
+            return Result<DeliveryFailureResponse>.Fail("Bạn không có quyền cập nhật đơn hàng này.", "FORBIDDEN");
+
         bool autoCancelled;
         try
         {
