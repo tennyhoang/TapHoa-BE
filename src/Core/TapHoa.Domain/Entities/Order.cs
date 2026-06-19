@@ -28,9 +28,13 @@ public class Order : BaseEntity
     // Hub mà Customer sẽ đến lấy hàng (O2O model)
     public Guid HubId { get; set; }
 
+    // WarehouseManager gán đơn cho tài xế nào
+    public Guid? AssignedDriverId { get; private set; }
+
     public User User { get; set; } = default!;
     public Address? ShippingAddress { get; set; }
     public Hub Hub { get; set; } = default!;
+    public User? AssignedDriver { get; set; }
     public ICollection<OrderItem> Items { get; set; } = [];
     public ICollection<OrderClaim> Claims { get; set; } = [];
 
@@ -58,6 +62,25 @@ public class Order : BaseEntity
             throw new OrderDomainException($"Chỉ có thể đóng gói đơn đang chờ xử lý (trạng thái hiện tại: '{Status}').");
         Status = OrderStatus.PackedAtWarehouse;
         PackedAtWarehouseAt = DateTime.UtcNow;
+    }
+
+    // WarehouseManager gán đơn cho tài xế
+    public void AssignToDriver(Guid driverId)
+    {
+        GuardTerminal();
+        if (Status is not (OrderStatus.Paid_WaitingForBatch or OrderStatus.PackedAtWarehouse))
+            throw new OrderDomainException($"Chỉ có thể gán tài xế cho đơn đang chờ xử lý hoặc đã đóng gói (trạng thái hiện tại: '{Status}').");
+        AssignedDriverId = driverId;
+    }
+
+    public void UnassignDriver()
+    {
+        GuardTerminal();
+        if (AssignedDriverId is null)
+            throw new OrderDomainException("Đơn hàng chưa được gán tài xế.");
+        if (Status != OrderStatus.PackedAtWarehouse)
+            throw new OrderDomainException($"Chỉ có thể hủy gán tài xế khi đơn đã đóng gói (trạng thái hiện tại: '{Status}').");
+        AssignedDriverId = null;
     }
 
     // Driver nhận lô từ kho → bắt đầu giao đến Hub

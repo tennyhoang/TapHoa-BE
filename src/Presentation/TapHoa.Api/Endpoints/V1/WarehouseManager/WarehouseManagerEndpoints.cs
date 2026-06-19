@@ -64,26 +64,50 @@ public static class WarehouseManagerEndpoints
             });
         });
 
-        // GET /warehouse-manager/orders?status=&page=&pageSize= — đơn hàng cần xử lý tại kho
+        // GET /warehouse-manager/orders?status=&search=&driverId=&page=&pageSize=
+        //   — danh sách đơn hàng tại kho với nhiều bộ lọc
         group.MapGet("/orders", async (
             AppDbContext db,
             string? status = null,
+            string? search = null,
+            Guid? driverId = null,
             int page = 1,
             int pageSize = 20) =>
         {
             var targetStatuses = status switch
             {
+                "pending" => new[] { OrderStatus.Paid_WaitingForBatch },
                 "packed" => new[] { OrderStatus.PackedAtWarehouse },
                 "shipping" => new[] { OrderStatus.ShippingToHub },
-                _ => new[] { OrderStatus.Paid_WaitingForBatch }
+                "assigned" => new[] { OrderStatus.PackedAtWarehouse },
+                _ => new[] { OrderStatus.Paid_WaitingForBatch, OrderStatus.PackedAtWarehouse, OrderStatus.ShippingToHub }
             };
 
             var query = db.Orders
+                .Include(o => o.User)
+                .Include(o => o.Hub)
+                .Include(o => o.AssignedDriver)
+                .Include(o => o.Items).ThenInclude(i => i.Product)
                 .Where(o => targetStatuses.Contains(o.Status))
-                .OrderByDescending(o => o.CreatedAt);
+                .AsQueryable();
+
+            // Lọc theo tài xế được gán
+            if (driverId.HasValue)
+                query = query.Where(o => o.AssignedDriverId == driverId.Value);
+            else if (status == "assigned")
+                query = query.Where(o => o.AssignedDriverId != null);
+            else if (status == "unassigned")
+                query = query.Where(o => o.AssignedDriverId == null);
+
+            // Tìm kiếm theo tên/ SĐT khách hàng
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(o =>
+                    o.User.FullName.Contains(search) ||
+                    (o.User.PhoneNumber != null && o.User.PhoneNumber.Contains(search)));
 
             var total = await query.CountAsync();
             var items = await query
+                .OrderByDescending(o => o.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(o => new
@@ -95,6 +119,10 @@ public static class WarehouseManagerEndpoints
                     o.PaidAt,
                     o.PackedAtWarehouseAt,
                     o.Note,
+                    o.AssignedDriverId,
+                    AssignedDriver = o.AssignedDriver != null
+                        ? new { o.AssignedDriver.Id, o.AssignedDriver.FullName, o.AssignedDriver.PhoneNumber }
+                        : null,
                     Hub = new { o.Hub.Id, o.Hub.Name, o.Hub.Address },
                     Customer = new { o.User.FullName, o.User.PhoneNumber },
                     Items = o.Items.Select(i => new
@@ -116,6 +144,70 @@ public static class WarehouseManagerEndpoints
                 PageSize = pageSize,
                 TotalPages = (int)Math.Ceiling(total / (double)pageSize),
             });
+        });
+
+        // POST /warehouse-manager/orders/assign — gán đơn cho tài xế
+        group.MapPost("/orders/assign", async (
+            [FromBody] AssignDriverRequest body,
+            AppDbContext db) =>
+        {
+            if (body.OrderIds is not { Count: > 0 })
+                return Results.BadRequest(new { Error = "Danh sách đơn hàng không được rỗng." });
+            if (body.DriverId == Guid.Empty)
+                return Results.BadRequest(new { Error = "Vui lòng chọn tài xế." });
+
+            // Kiểm tra tài xế tồn tại và đang hoạt động
+            var driver = await db.Users.FirstOrDefaultAsync(u =>
+                u.Id == body.DriverId && u.Role == UserRole.Driver && u.IsActive);
+            if (driver is null)
+                return Results.NotFound(new { Error = "Không tìm thấy tài xế.", ErrorCode = "DRIVER_NOT_FOUND" });
+
+            var orders = await db.Orders
+                .Where(o => body.OrderIds.Contains(o.Id))
+                .ToListAsync();
+
+            var assigned = 0;
+            var errors = new List<string>();
+
+            foreach (var id in body.OrderIds)
+            {
+                var order = orders.FirstOrDefault(o => o.Id == id);
+                if (order is null) { errors.Add($"Đơn {id}: không tìm thấy."); continue; }
+                try { order.AssignToDriver(body.DriverId); assigned++; }
+                catch (OrderDomainException ex) { errors.Add($"Đơn {id}: {ex.Message}"); }
+            }
+
+            if (assigned > 0) await db.SaveChangesAsync();
+
+            return Results.Ok(new { Assigned = assigned, Errors = errors, DriverName = driver.FullName });
+        });
+
+        // POST /warehouse-manager/orders/unassign — hủy gán tài xế
+        group.MapPost("/orders/unassign", async (
+            [FromBody] UnassignDriverRequest body,
+            AppDbContext db) =>
+        {
+            if (body.OrderIds is not { Count: > 0 })
+                return Results.BadRequest(new { Error = "Danh sách đơn hàng không được rỗng." });
+
+            var orders = await db.Orders
+                .Where(o => body.OrderIds.Contains(o.Id))
+                .ToListAsync();
+
+            var unassigned = 0;
+            var errors = new List<string>();
+
+            foreach (var id in body.OrderIds)
+            {
+                var order = orders.FirstOrDefault(o => o.Id == id);
+                if (order is null) { errors.Add($"Đơn {id}: không tìm thấy."); continue; }
+                try { order.UnassignDriver(); unassigned++; }
+                catch (OrderDomainException ex) { errors.Add($"Đơn {id}: {ex.Message}"); }
+            }
+
+            if (unassigned > 0) await db.SaveChangesAsync();
+
+            return Results.Ok(new { Unassigned = unassigned, Errors = errors });
         });
 
         // PATCH /warehouse-manager/orders/{id}/pack — xác nhận đã đóng gói
@@ -163,7 +255,7 @@ public static class WarehouseManagerEndpoints
             return Results.Ok(new { Packed = packed, Errors = errors });
         });
 
-        // GET /warehouse-manager/inventory?search=&page=&pageSize= — danh sách tồn kho
+        // GET /warehouse-manager/inventory?search=&filter=&page=&pageSize= — danh sách tồn kho
         group.MapGet("/inventory", async (
             AppDbContext db,
             string? search = null,
@@ -232,7 +324,7 @@ public static class WarehouseManagerEndpoints
             return Results.Ok(new { product.Id, product.Name, product.Stock, Delta = body.Delta, Reason = body.Reason });
         });
 
-        // GET /warehouse-manager/drivers — tài xế được gán về kho này
+        // GET /warehouse-manager/drivers — tài xế được gán về kho này + số lượng đơn đã gán
         group.MapGet("/drivers", async (ClaimsPrincipal user, AppDbContext db) =>
         {
             var managerId = GetUserId(user);
@@ -254,7 +346,12 @@ public static class WarehouseManagerEndpoints
                     u.PhoneNumber,
                     u.IsActive,
                     ActiveOrders = db.Orders.Count(o =>
-                        o.Status == OrderStatus.ShippingToHub),
+                        o.AssignedDriverId == u.Id && o.Status == OrderStatus.ShippingToHub),
+                    AssignedPackedOrders = db.Orders.Count(o =>
+                        o.AssignedDriverId == u.Id && o.Status == OrderStatus.PackedAtWarehouse),
+                    TotalAssigned = db.Orders.Count(o =>
+                        o.AssignedDriverId == u.Id &&
+                        (o.Status == OrderStatus.PackedAtWarehouse || o.Status == OrderStatus.ShippingToHub)),
                 })
                 .ToListAsync();
 
@@ -268,3 +365,5 @@ public static class WarehouseManagerEndpoints
 
 public record PackBatchRequest(List<Guid> OrderIds);
 public record AdjustStockRequest(int Delta, string? Reason);
+public record AssignDriverRequest(Guid DriverId, List<Guid> OrderIds);
+public record UnassignDriverRequest(List<Guid> OrderIds);
