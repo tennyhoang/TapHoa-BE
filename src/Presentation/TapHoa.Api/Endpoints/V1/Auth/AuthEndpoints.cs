@@ -31,7 +31,7 @@ public static class AuthEndpoints
         {
             var result = await mediator.Send(command);
             SetAuthCookies(response, result.AccessToken, result.RefreshToken, env.IsProduction());
-            return Results.Ok(new { result.Email, result.FullName, result.Role, result.EmailConfirmed });
+            return Results.Ok(new { result.AccessToken, result.Email, result.FullName, result.Role, result.EmailConfirmed });
         });
 
         group.MapPost("/social-login", async (
