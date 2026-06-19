@@ -50,7 +50,7 @@ public class VnpayService(IOptions<VnpayOptions> options) : IVnpayService
     {
         var requestId = Guid.NewGuid().ToString("N")[..12].ToUpper();
         var createDate = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-        var ipAddr = "127.0.0.1";
+        var ipAddr = _options.ServerIpAddress;
 
         var vnpParams = new SortedDictionary<string, string>
         {

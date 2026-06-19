@@ -87,14 +87,27 @@ public static class InfrastructureExtension
                     NameClaimType = "unique_name"
                 };
 
-                // Cho phép SignalR nhận JWT từ query string (access_token)
                 options.Events = new JwtBearerEvents
                 {
                     OnMessageReceived = context =>
                     {
-                        var accessToken = context.Request.Query["access_token"];
-                        if (!string.IsNullOrEmpty(accessToken))
-                            context.Token = accessToken;
+                        // Authorization header takes priority (API clients, Scalar docs)
+                        if (context.Request.Headers.ContainsKey("Authorization"))
+                            return Task.CompletedTask;
+
+                        // httpOnly cookie (browser clients after login)
+                        if (context.Request.Cookies.TryGetValue("access_token", out var cookieToken)
+                            && !string.IsNullOrEmpty(cookieToken))
+                        {
+                            context.Token = cookieToken;
+                            return Task.CompletedTask;
+                        }
+
+                        // SignalR query string (WebSocket handshake cannot carry cookies)
+                        var qsToken = context.Request.Query["access_token"];
+                        if (!string.IsNullOrEmpty(qsToken))
+                            context.Token = qsToken;
+
                         return Task.CompletedTask;
                     }
                 };

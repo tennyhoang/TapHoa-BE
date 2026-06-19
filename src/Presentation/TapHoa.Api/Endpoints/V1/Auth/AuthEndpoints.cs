@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Hosting;
 using TapHoa.Application.Auth.V1.Login;
 using TapHoa.Application.Auth.V1.Register;
 using TapHoa.Application.Auth.V1.SocialLogin;
@@ -11,21 +12,63 @@ public static class AuthEndpoints
     {
         var group = app.MapGroup("/api/v1/auth").WithTags("Auth").RequireRateLimiting("AuthPolicy");
 
-        group.MapPost("/register", async (RegisterCommand command, IMediator mediator) =>
-            Results.Ok(await mediator.Send(command)));
-
-        group.MapPost("/login", async (LoginCommand command, IMediator mediator) =>
-            Results.Ok(await mediator.Send(command)));
-
-        group.MapPost("/social-login", async (SocialLoginCommand command, IMediator mediator) =>
-            Results.Ok(await mediator.Send(command)));
-
-        group.MapPost("/refresh-token", async (RefreshTokenCommand command, IMediator mediator) =>
-            Results.Ok(await mediator.Send(command)));
-
-        group.MapPost("/logout", async (LogoutCommand command, IMediator mediator) =>
+        group.MapPost("/register", async (
+            RegisterCommand command,
+            IMediator mediator,
+            HttpResponse response,
+            IWebHostEnvironment env) =>
         {
-            await mediator.Send(command);
+            var result = await mediator.Send(command);
+            SetAuthCookies(response, result.AccessToken, result.RefreshToken, env.IsProduction());
+            return Results.Ok(new { result.Email, result.FullName, result.Role, result.EmailConfirmed });
+        });
+
+        group.MapPost("/login", async (
+            LoginCommand command,
+            IMediator mediator,
+            HttpResponse response,
+            IWebHostEnvironment env) =>
+        {
+            var result = await mediator.Send(command);
+            SetAuthCookies(response, result.AccessToken, result.RefreshToken, env.IsProduction());
+            return Results.Ok(new { result.Email, result.FullName, result.Role, result.EmailConfirmed });
+        });
+
+        group.MapPost("/social-login", async (
+            SocialLoginCommand command,
+            IMediator mediator,
+            HttpResponse response,
+            IWebHostEnvironment env) =>
+        {
+            var result = await mediator.Send(command);
+            SetAuthCookies(response, result.AccessToken, result.RefreshToken, env.IsProduction());
+            return Results.Ok(new { result.Email, result.FullName, result.Role, result.EmailConfirmed });
+        });
+
+        group.MapPost("/refresh-token", async (
+            HttpRequest request,
+            HttpResponse response,
+            IMediator mediator,
+            IWebHostEnvironment env) =>
+        {
+            var refreshToken = request.Cookies["refresh_token"];
+            if (string.IsNullOrEmpty(refreshToken))
+                return Results.Unauthorized();
+            var result = await mediator.Send(new RefreshTokenCommand(refreshToken));
+            SetAuthCookies(response, result.AccessToken, result.RefreshToken, env.IsProduction());
+            return Results.Ok(new { result.Email, result.FullName, result.Role });
+        });
+
+        group.MapPost("/logout", async (
+            HttpRequest request,
+            HttpResponse response,
+            IMediator mediator,
+            IWebHostEnvironment env) =>
+        {
+            var refreshToken = request.Cookies["refresh_token"];
+            if (!string.IsNullOrEmpty(refreshToken))
+                await mediator.Send(new LogoutCommand(refreshToken));
+            ClearAuthCookies(response, env.IsProduction());
             return Results.Ok(new { message = "Đăng xuất thành công." });
         });
 
@@ -52,5 +95,41 @@ public static class AuthEndpoints
             await mediator.Send(command);
             return Results.Ok(new { message = "Mật khẩu đã được đặt lại thành công." });
         });
+    }
+
+    private static void SetAuthCookies(
+        HttpResponse response,
+        string accessToken,
+        string refreshToken,
+        bool isProduction)
+    {
+        var baseOpts = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = isProduction,
+            SameSite = isProduction ? SameSiteMode.None : SameSiteMode.Lax,
+            Path = "/",
+        };
+
+        response.Cookies.Append("access_token", accessToken,
+            baseOpts with { MaxAge = TimeSpan.FromMinutes(15) });
+
+        // Restrict refresh token to auth endpoints to limit exposure
+        response.Cookies.Append("refresh_token", refreshToken,
+            baseOpts with { MaxAge = TimeSpan.FromDays(30), Path = "/api/v1/auth" });
+    }
+
+    private static void ClearAuthCookies(HttpResponse response, bool isProduction)
+    {
+        var baseOpts = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = isProduction,
+            SameSite = isProduction ? SameSiteMode.None : SameSiteMode.Lax,
+            MaxAge = TimeSpan.Zero,
+        };
+
+        response.Cookies.Append("access_token", "", baseOpts with { Path = "/" });
+        response.Cookies.Append("refresh_token", "", baseOpts with { Path = "/api/v1/auth" });
     }
 }

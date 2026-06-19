@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using TapHoa.Application.Contracts;
 
 namespace TapHoa.Api.Endpoints.V1.Upload;
 
@@ -52,6 +53,27 @@ public static class UploadEndpoints
 
             return Results.Ok(new { url });
         }).RequireAuthorization("Admin").DisableAntiforgery();
+
+        // Signed Cloudinary upload — replaces insecure unsigned browser-to-Cloudinary upload
+        group.MapPost("/cloudinary-image", async (IFormFile file, ICloudinaryService cloudinary) =>
+        {
+            if (file.Length == 0)
+                return Results.BadRequest(new { message = "File trống." });
+
+            if (file.Length > MaxFileSize)
+                return Results.BadRequest(new { message = "File quá lớn. Tối đa 5MB." });
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!AllowedExtensions.Contains(ext))
+                return Results.BadRequest(new { message = "Định dạng không hỗ trợ. Chỉ chấp nhận jpg, png, webp, gif." });
+
+            if (!await HasValidMagicBytesAsync(file, ext))
+                return Results.BadRequest(new { message = "Nội dung file không khớp định dạng khai báo." });
+
+            await using var stream = file.OpenReadStream();
+            var url = await cloudinary.UploadImageAsync(stream, file.FileName);
+            return Results.Ok(new { url });
+        }).RequireAuthorization().DisableAntiforgery();
     }
 
     private static async Task<bool> HasValidMagicBytesAsync(IFormFile file, string ext)

@@ -7,4 +7,5 @@ public class VnpayOptions
     public string TmnCode { get; set; } = string.Empty;
     public string HashSecret { get; set; } = string.Empty;
     public string ReturnUrl { get; set; } = string.Empty;
+    public string ServerIpAddress { get; set; } = "127.0.0.1";
 }
