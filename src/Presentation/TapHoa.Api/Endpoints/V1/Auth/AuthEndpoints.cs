@@ -103,33 +103,47 @@ public static class AuthEndpoints
         string refreshToken,
         bool isProduction)
     {
-        var baseOpts = new CookieOptions
+        var sameSite = isProduction ? SameSiteMode.None : SameSiteMode.Lax;
+
+        response.Cookies.Append("access_token", accessToken, new CookieOptions
         {
             HttpOnly = true,
-            Secure = isProduction,
-            SameSite = isProduction ? SameSiteMode.None : SameSiteMode.Lax,
-            Path = "/",
-        };
+            Secure   = isProduction,
+            SameSite = sameSite,
+            Path     = "/",
+            MaxAge   = TimeSpan.FromMinutes(15),
+        });
 
-        response.Cookies.Append("access_token", accessToken,
-            baseOpts with { MaxAge = TimeSpan.FromMinutes(15) });
-
-        // Restrict refresh token to auth endpoints to limit exposure
-        response.Cookies.Append("refresh_token", refreshToken,
-            baseOpts with { MaxAge = TimeSpan.FromDays(30), Path = "/api/v1/auth" });
+        response.Cookies.Append("refresh_token", refreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure   = isProduction,
+            SameSite = sameSite,
+            Path     = "/api/v1/auth",
+            MaxAge   = TimeSpan.FromDays(30),
+        });
     }
 
     private static void ClearAuthCookies(HttpResponse response, bool isProduction)
     {
-        var baseOpts = new CookieOptions
+        var sameSite = isProduction ? SameSiteMode.None : SameSiteMode.Lax;
+
+        response.Cookies.Append("access_token", "", new CookieOptions
         {
             HttpOnly = true,
-            Secure = isProduction,
-            SameSite = isProduction ? SameSiteMode.None : SameSiteMode.Lax,
-            MaxAge = TimeSpan.Zero,
-        };
+            Secure   = isProduction,
+            SameSite = sameSite,
+            Path     = "/",
+            MaxAge   = TimeSpan.Zero,
+        });
 
-        response.Cookies.Append("access_token", "", baseOpts with { Path = "/" });
-        response.Cookies.Append("refresh_token", "", baseOpts with { Path = "/api/v1/auth" });
+        response.Cookies.Append("refresh_token", "", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure   = isProduction,
+            SameSite = sameSite,
+            Path     = "/api/v1/auth",
+            MaxAge   = TimeSpan.Zero,
+        });
     }
 }
