@@ -10,15 +10,17 @@ namespace TapHoa.Api.Tests.Filters;
 public class SepayWebhookSecretFilterTests
 {
     [Fact]
-    public async Task InvokeAsync_SecretKeyNotConfigured_PassesThrough()
+    public async Task InvokeAsync_SecretKeyNotConfigured_Returns503()
     {
         var filter = CreateFilter(new SepayOptions { ApiKey = "key", SecretKey = "" });
         var invoked = false;
         var next = CreateNext(() => invoked = true);
 
-        await filter.InvokeAsync(CreateContext(new HeaderDictionary()), next);
+        var result = await filter.InvokeAsync(CreateContext(new HeaderDictionary()), next);
 
-        invoked.Should().BeTrue();
+        invoked.Should().BeFalse();
+        result.Should().BeOfType<Microsoft.AspNetCore.Http.HttpResults.StatusCodeHttpResult>()
+            .Which.StatusCode.Should().Be(StatusCodes.Status503ServiceUnavailable);
     }
 
     [Fact]
