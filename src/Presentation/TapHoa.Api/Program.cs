@@ -130,13 +130,13 @@ try
     {
         options.AddDefaultPolicy(policy =>
         {
+            // Explicit allowlist — wildcard subdomain matching is unsafe with AllowCredentials
+            var allowedOrigins = builder.Configuration
+                .GetSection("Cors:AllowedOrigins")
+                .Get<string[]>() ?? [];
+
             policy
-                .SetIsOriginAllowed(origin =>
-                {
-                    var host = new Uri(origin).Host;
-                    return host == "localhost"
-                        || host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase);
-                })
+                .WithOrigins(allowedOrigins)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -145,6 +145,7 @@ try
 
     builder.Services.AddRateLimiter(options =>
     {
+        // Auth endpoints: brute-force protection (10 req/min)
         options.AddFixedWindowLimiter("AuthPolicy", opt =>
         {
             opt.PermitLimit = 10;
@@ -152,6 +153,34 @@ try
             opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
             opt.QueueLimit = 2;
         });
+
+        // Voucher validate: brute-force code enumeration (20 req/min)
+        options.AddFixedWindowLimiter("VoucherPolicy", opt =>
+        {
+            opt.PermitLimit = 20;
+            opt.Window = TimeSpan.FromMinutes(1);
+            opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+            opt.QueueLimit = 0;
+        });
+
+        // AI generation: expensive Groq + Cloudinary calls (5 req/min)
+        options.AddFixedWindowLimiter("AiPolicy", opt =>
+        {
+            opt.PermitLimit = 5;
+            opt.Window = TimeSpan.FromMinutes(1);
+            opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+            opt.QueueLimit = 0;
+        });
+
+        // Global fallback: 300 req/min per remote IP
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 300,
+                    Window = TimeSpan.FromMinutes(1),
+                }));
 
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     });
@@ -188,7 +217,7 @@ try
             options.Title = "TapHoa API";
             options.WithPreferredScheme("Bearer");
             options.WithHttpBearerAuthentication(bearer => bearer.Token = string.Empty);
-        }).RequireAuthorization();
+        }).RequireAuthorization("Admin");
     }
 
     app.UseAuthentication();

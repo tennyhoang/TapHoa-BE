@@ -10,7 +10,8 @@ public record CartItemResponse(
     int Stock
 )
 {
-    public decimal UnitPrice => DiscountPrice ?? Price;
+    public decimal? FlashSalePrice { get; init; }
+    public decimal UnitPrice => FlashSalePrice ?? DiscountPrice ?? Price;
     public decimal Subtotal => UnitPrice * Quantity;
 }
 

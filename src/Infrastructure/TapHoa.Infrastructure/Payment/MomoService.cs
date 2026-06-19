@@ -39,7 +39,7 @@ public class MomoService(
         };
 
         var client = httpClientFactory.CreateClient();
-        var response = await client.PostAsJsonAsync("https://test-payment.momo.vn/v2/gateway/api/create", requestBody);
+        var response = await client.PostAsJsonAsync($"{_options.ApiUrl}/v2/gateway/api/create", requestBody);
         var result = await response.Content.ReadFromJsonAsync<MomoGatewayResponse>();
 
         if (result is null)
@@ -73,7 +73,7 @@ public class MomoService(
         };
 
         var client = httpClientFactory.CreateClient();
-        var response = await client.PostAsJsonAsync("https://test-payment.momo.vn/v2/gateway/api/refund", requestBody);
+        var response = await client.PostAsJsonAsync($"{_options.ApiUrl}/v2/gateway/api/refund", requestBody);
         var result = await response.Content.ReadFromJsonAsync<MomoGatewayResponse>();
         return result?.ResultCode == 0;
     }

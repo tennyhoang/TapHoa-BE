@@ -44,7 +44,7 @@ public static class FlashSaleEndpoints
                         Id: i.ProductId,
                         Name: i.Product.Name,
                         ThumbnailUrl: i.Product.ThumbnailUrl,
-                        CategoryName: i.Product.Category.Name,
+                        CategoryName: i.Product.Category != null ? i.Product.Category.Name : "",
                         OriginalPrice: i.Product.Price,
                         FlashSalePrice: i.FlashSalePrice,
                         FlashSaleStock: i.FlashSaleStock,

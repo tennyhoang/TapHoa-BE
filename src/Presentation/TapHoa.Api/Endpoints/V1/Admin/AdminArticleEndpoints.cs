@@ -216,7 +216,7 @@ public static class AdminArticleEndpoints
             {
                 return Results.Problem(ex.Message);
             }
-        });
+        }).RequireRateLimiting("AiPolicy");
     }
 }
 

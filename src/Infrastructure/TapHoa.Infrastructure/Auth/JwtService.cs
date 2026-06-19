@@ -47,16 +47,16 @@ public class JwtService(IConfiguration config) : IJwtService
         return Convert.ToBase64String(randomBytes);
     }
 
-    public Guid? ValidateRefreshToken(string refreshToken)
+    public bool IsValidRefreshTokenFormat(string refreshToken)
     {
         try
         {
             var bytes = Convert.FromBase64String(refreshToken);
-            return bytes.Length == 64 ? Guid.Empty : null; // Format valid, user ID from DB
+            return bytes.Length == 64;
         }
         catch
         {
-            return null;
+            return false;
         }
     }
 }

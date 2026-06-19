@@ -4,10 +4,9 @@ using TapHoa.Application.Common;
 namespace TapHoa.Application.Driver.V1;
 
 /// <summary>
-/// Lấy danh sách đơn hàng đang chờ gom (Paid_WaitingForBatch) theo HubId của Driver.
-/// Dùng cho màn hình gom đơn lúc 12h đêm.
+/// Lấy danh sách đơn hàng đã được gán cho tài xế và đang chờ nhận (PackedAtWarehouse).
 /// </summary>
-public record GetDriverActiveOrdersQuery(Guid HubId)
+public record GetDriverActiveOrdersQuery(Guid DriverId)
     : IRequest<Result<List<DriverOrderSummary>>>;
 
 public record DriverOrderSummary(

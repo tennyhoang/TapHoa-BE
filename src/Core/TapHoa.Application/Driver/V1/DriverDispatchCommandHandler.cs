@@ -35,6 +35,12 @@ public class DriverDispatchCommandHandler(IRepository<Order> orderRepo)
                 continue;
             }
 
+            if (order.AssignedDriverId != null && order.AssignedDriverId != request.DriverId)
+            {
+                errors.Add($"Đơn {id}: đã được gán cho tài xế khác.");
+                continue;
+            }
+
             try
             {
                 order.StartShipping();

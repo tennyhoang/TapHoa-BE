@@ -77,6 +77,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(o => o.CancelReason).HasMaxLength(500);
             e.Property(o => o.DeliveryPhotoUrl).HasMaxLength(2048);
             e.Property(o => o.FailedDeliveryAttempts).HasDefaultValue(0);
+
+            e.HasOne(o => o.AssignedDriver)
+             .WithMany()
+             .HasForeignKey(o => o.AssignedDriverId)
+             .OnDelete(DeleteBehavior.SetNull)
+             .IsRequired(false);
         });
 
         modelBuilder.Entity<InventoryTransaction>(e =>

@@ -17,8 +17,8 @@ public class GetDriverActiveOrdersQueryHandler(IRepository<Order> orderRepo)
             .Include(o => o.Hub)
             .Include(o => o.User)
             .Include(o => o.Items)
-            .Where(o => o.HubId   == request.HubId &&
-                        o.Status  == OrderStatus.Paid_WaitingForBatch)
+            .Where(o => o.AssignedDriverId == request.DriverId &&
+                        o.Status == OrderStatus.PackedAtWarehouse)
             .OrderBy(o => o.CreatedAt)
             .Select(o => new DriverOrderSummary(
                 o.Id,

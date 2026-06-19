@@ -18,7 +18,7 @@ public class GetDriverShippingOrdersQueryHandler(IRepository<Order> orderRepo)
         var query = orderRepo.Query()
             .Include(o => o.Hub)
             .Include(o => o.Items).ThenInclude(i => i.Product)
-            .Where(o => o.Status == OrderStatus.ShippingToHub)
+            .Where(o => o.Status == OrderStatus.ShippingToHub && o.AssignedDriverId == request.DriverId)
             .OrderByDescending(o => o.ShippingToHubAt);
 
         var total = await query.CountAsync(cancellationToken);

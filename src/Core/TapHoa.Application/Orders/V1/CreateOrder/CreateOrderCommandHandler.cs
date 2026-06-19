@@ -86,7 +86,9 @@ public class CreateOrderCommandHandler(
         {
             ProductId = c.ProductId,
             Quantity  = c.Quantity,
-            UnitPrice = c.Product.DiscountPrice ?? c.Product.Price
+            UnitPrice = flashSaleMap.TryGetValue(c.ProductId, out var fsItem)
+                ? fsItem.FlashSalePrice
+                : (c.Product.DiscountPrice ?? c.Product.Price),
         }).ToList();
 
         var orderId     = Guid.NewGuid();

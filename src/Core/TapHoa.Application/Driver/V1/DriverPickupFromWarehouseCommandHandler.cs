@@ -32,6 +32,12 @@ public class DriverPickupFromWarehouseCommandHandler(IRepository<Order> orderRep
                 continue;
             }
 
+            if (order.AssignedDriverId != request.DriverId)
+            {
+                errors.Add($"Đơn {id}: không được gán cho bạn.");
+                continue;
+            }
+
             try
             {
                 order.StartShipping();
